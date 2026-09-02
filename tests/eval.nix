@@ -88,8 +88,19 @@ in
         && lib.hasInfix "is not Btrfs" warnText
         && !(cfg.boot.initrd.luks.devices ? cryptroot);
     in
-    assert lib.assertMsg ok "default storage path should warn and never format";
-    pkgs.runCommand "omarchy-eval-storage-warn" { } "touch $out";
+    if ok then
+      pkgs.runCommand "omarchy-eval-storage-warn" { } "touch $out"
+    else
+      throw ''
+        default storage path should warn and never format
+        disko.enable=${toString cfg.programs.omarchy.storage.disko.enable}
+        snapper.root=${cfg.services.snapper.configs.root.SUBVOLUME or "MISSING"}
+        snapper.home=${cfg.services.snapper.configs.home.SUBVOLUME or "MISSING"}
+        has-luks-warn=${toString (lib.hasInfix "storage.luks.device" warnText)}
+        has-btrfs-warn=${toString (lib.hasInfix "is not Btrfs" warnText)}
+        has-cryptroot=${toString (cfg.boot.initrd.luks.devices ? cryptroot)}
+        warnings=${warnText}
+      '';
 
   eval-storage-disko =
     let
@@ -122,7 +133,17 @@ in
         && cfg.services.snapper.configs.root.SUBVOLUME == "/"
         && cfg.services.snapper.configs.home.SUBVOLUME == "/home";
     in
-    assert lib.assertMsg ok
-      "disko + storage pillar should produce the Omarchy layout and Snapper wiring";
-    pkgs.runCommand "omarchy-eval-storage-disko" { } "touch $out";
+    if ok then
+      pkgs.runCommand "omarchy-eval-storage-disko" { } "touch $out"
+    else
+      throw ''
+        disko + storage pillar should produce the Omarchy layout and Snapper wiring
+        / fsType=${fs."/".fsType or "MISSING"}
+        /boot fsType=${fs."/boot".fsType or "MISSING"}
+        has-cryptroot=${toString (cfg.boot.initrd.luks.devices ? cryptroot)}
+        luks-warn=${toString (lib.hasInfix "storage.luks.device" warnText)}
+        snapper.root=${cfg.services.snapper.configs.root.SUBVOLUME or "MISSING"}
+        options=/ ${toString (fs."/".options or [ ])}
+        warnings=${warnText}
+      '';
 }
