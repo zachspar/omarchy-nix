@@ -265,8 +265,7 @@ in
       bindel = cfg.wayland.windowManager.hyprland.settings.bindel or [ ];
       bindl = cfg.wayland.windowManager.hyprland.settings.bindl or [ ];
       profiles = cfg.services.hyprsunset.settings.profile or [ ];
-      identity =
-        lib.any (p: (p.identity or false) && (p.time or "") == "07:00") profiles;
+      identity = lib.any (p: (p.identity or false) && (p.time or "") == "07:00") profiles;
       ok =
         cfg.services.hyprsunset.enable
         && identity

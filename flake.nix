@@ -76,7 +76,12 @@
       checks = forAllSystems (
         system:
         import ./tests/eval.nix {
-          inherit self lib system home-manager;
+          inherit
+            self
+            lib
+            system
+            home-manager
+            ;
           pkgs = nixpkgs.legacyPackages.${system};
         }
       );
