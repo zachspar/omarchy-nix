@@ -36,7 +36,8 @@ in
         Shell pillar: Hyprland + Walker + Ghostty, the "feels like Omarchy"
         baseline. Also enables Waybar (Omarchy's status bar; Walker is the
         launcher), the Elephant backend Walker 2.x needs, hyprlock + hypridle
-        (lock on idle), mako (notifications), and SDDM + Plymouth so first
+        (lock on idle), mako (notifications), hyprsunset (night light) +
+        swayosd (volume/brightness/caps OSD), and SDDM + Plymouth so first
         login (and LUKS unlock) match Omarchy.
       '';
 
@@ -171,16 +172,40 @@ in
           notifier; this stub stays on mako from nixpkgs.
         '';
       };
+
+      nightlightPackage = mkPackageOption pkgs "hyprsunset" {
+        extraDescription = ''
+          Night light / blue-light filter. Ships Omarchy's identity profile
+          (`time = 07:00`) so the display is untouched until you ask. Super+Ctrl+N
+          / `omarchy-toggle-nightlight` warms to 4000K and back to 6000K, same
+          pair as Omarchy's toggle script. Not theme-aware — temperature is
+          independent of `theme.name`. Home Manager starts the user unit so the
+          toggle has a daemon to talk to; hypridle / hyprlock are unchanged.
+        '';
+      };
+
+      osdPackage = mkPackageOption pkgs "swayosd" {
+        extraDescription = ''
+          On-screen display for volume, brightness, and lock keys. Home Manager
+          runs `swayosd-server` as a user unit (not Hyprland exec-once, so it
+          survives lock/suspend). NixOS enables the libinput backend for Caps /
+          Num / Scroll Lock. Media binds use bindel/bindl so they still work on
+          hyprlock. Quattro's native shell OSD is not in nixpkgs — this flake
+          stays on swayosd, same as Walker 2.x.
+        '';
+      };
     };
 
     theme = {
       enable = mkPillarEnable ''
         Theme pillar: one command (`omarchy-theme-set`) and one keybind
         (`Super+Ctrl+Shift+Space`) that flip GTK, Hyprland, Ghostty, icons,
-        hyprlock, mako, Waybar, Walker, Neovim, btop, and wallpaper together.
-        The keybind opens the Walker theme picker; `omarchy-theme-next` still
-        cycles. Chromium chrome follows `theme.name` via a NixOS managed
+        hyprlock, mako, Waybar, Walker, swayosd, Neovim, btop, and wallpaper
+        together. The keybind opens the Walker theme picker; `omarchy-theme-next`
+        still cycles. Chromium chrome follows `theme.name` via a NixOS managed
         policy and needs a rebuild — `omarchy-theme-set` cannot rewrite `/etc`.
+        hyprsunset is not in this list: night light is a temperature toggle,
+        not a palette.
       '';
 
       name = mkOption {
@@ -194,11 +219,12 @@ in
           `lupine`, `matte-black`, `miasma`, `nord`, `osaka-jade`,
           `retro-82`, `ristretto`, `rose-pine`, `solitude`, `tokyo-night`,
           `vantablack`, `white`. Each flip retints GTK, Hyprland, Ghostty,
-          icons, hyprlock, mako, Waybar, Walker, Neovim, btop, and the
+          icons, hyprlock, mako, Waybar, Walker, swayosd, Neovim, btop, and the
           wallpaper (swaybg). Chromium chrome follows this name via
           `programs.chromium.extraOpts` (BrowserThemeColor from the pack's
           `colors.toml` background). That policy is generation-bound; live
-          `omarchy-theme-set` cannot rewrite `/etc`.
+          `omarchy-theme-set` cannot rewrite `/etc`. hyprsunset is a night-light
+          temperature, not a palette — Super+Ctrl+N does not follow this name.
         '';
       };
     };

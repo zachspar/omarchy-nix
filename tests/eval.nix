@@ -3,6 +3,7 @@
   lib,
   pkgs,
   system,
+  home-manager,
 }:
 let
   mkHost =
@@ -203,5 +204,89 @@ in
         has-service=${toString (cfg.systemd.services ? omarchy-limine-snapper)}
         etc-limine=${etcLimine}
         warnings=${warnText}
+      '';
+
+  eval-shell-osd =
+    let
+      host = mkHost [
+        self.nixosModules.omarchy
+        {
+          programs.omarchy.enable = true;
+          programs.omarchy.theme.enable = false;
+          programs.omarchy.apps.enable = false;
+          programs.omarchy.storage.enable = false;
+          fileSystems."/" = {
+            device = "/dev/vda";
+            fsType = "ext4";
+          };
+        }
+      ];
+      cfg = host.config;
+      pkgNames = map (p: p.pname or p.name or "") cfg.environment.systemPackages;
+      hasPkg = needle: lib.any (n: lib.hasPrefix needle n) pkgNames;
+      exec = toString (cfg.systemd.services.swayosd-libinput-backend.serviceConfig.ExecStart or "");
+      ok =
+        cfg.programs.omarchy.shell.enable
+        && hasPkg "hyprsunset"
+        && hasPkg "swayosd"
+        && cfg.systemd.services ? swayosd-libinput-backend
+        && lib.hasInfix "swayosd-libinput-backend" exec
+        && cfg.security.pam.services ? hyprlock;
+    in
+    if ok then
+      pkgs.runCommand "omarchy-eval-shell-osd" { } "touch $out"
+    else
+      throw ''
+        shell pillar should install hyprsunset + swayosd and the libinput backend
+        hyprsunset=${toString (hasPkg "hyprsunset")}
+        swayosd=${toString (hasPkg "swayosd")}
+        has-backend=${toString (cfg.systemd.services ? swayosd-libinput-backend)}
+        exec=${exec}
+        pam-hyprlock=${toString (cfg.security.pam.services ? hyprlock)}
+      '';
+
+  eval-hm-shell-osd =
+    let
+      hm = home-manager.lib.homeManagerConfiguration {
+        inherit pkgs;
+        modules = [
+          self.homeManagerModules.omarchy
+          {
+            home.username = "eval";
+            home.homeDirectory = "/home/eval";
+            home.stateVersion = "25.11";
+            programs.omarchy.enable = true;
+            programs.omarchy.storage.enable = false;
+          }
+        ];
+      };
+      cfg = hm.config;
+      binds = cfg.wayland.windowManager.hyprland.settings.bind or [ ];
+      bindel = cfg.wayland.windowManager.hyprland.settings.bindel or [ ];
+      bindl = cfg.wayland.windowManager.hyprland.settings.bindl or [ ];
+      profiles = cfg.services.hyprsunset.settings.profile or [ ];
+      identity = lib.any (p: (p.identity or false) && (p.time or "") == "07:00") profiles;
+      ok =
+        cfg.services.hyprsunset.enable
+        && identity
+        && cfg.services.swayosd.enable
+        && cfg.services.hypridle.enable
+        && lib.any (b: lib.hasInfix "omarchy-toggle-nightlight" b) binds
+        && lib.any (b: lib.hasInfix "XF86AudioRaiseVolume" b) bindel
+        && lib.any (b: lib.hasInfix "XF86AudioPlay" b) bindl
+        && cfg.xdg.configFile ? "swayosd/config.toml"
+        && cfg.xdg.configFile ? "swayosd/style.css";
+    in
+    if ok then
+      pkgs.runCommand "omarchy-eval-hm-shell-osd" { } "touch $out"
+    else
+      throw ''
+        Home Manager shell should wire hyprsunset identity + swayosd + media binds
+        hyprsunset=${toString cfg.services.hyprsunset.enable}
+        identity=${toString identity}
+        swayosd=${toString cfg.services.swayosd.enable}
+        hypridle=${toString cfg.services.hypridle.enable}
+        binds=${toString binds}
+        bindel=${toString bindel}
       '';
 }

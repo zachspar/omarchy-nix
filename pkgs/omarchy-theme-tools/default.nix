@@ -18,6 +18,9 @@
   fetchgit,
   walker,
   elephant,
+  jq,
+  libnotify,
+  gnugrep,
 }:
 let
   palettes = import ../../modules/shared/palettes.nix;
@@ -143,6 +146,14 @@ let
         @define-color border ${hex p.foreground};
         @define-color foreground ${hex p.foreground};
         @define-color background ${hex p.background};
+      '';
+      # Omarchy default/themed/swayosd.css.tpl.
+      swayosdCss = ''
+        @define-color background-color ${hex p.background};
+        @define-color border-color ${hex p.foreground};
+        @define-color label ${hex p.foreground};
+        @define-color image ${hex p.foreground};
+        @define-color progress ${hex p.accent};
       '';
       # Omarchy default/themed/btop.theme.tpl, filled from colors.toml.
       # Hand-written themes/*/btop.theme win when present.
@@ -316,6 +327,7 @@ let
       mako = writeText "${name}-mako.ini" mako;
       waybar = writeText "${name}-waybar.css" waybar;
       walker = writeText "${name}-walker.css" walkerCss;
+      swayosd = writeText "${name}-swayosd.css" swayosdCss;
       neovim = neovimLua;
       neovimPalette = neovimPalette;
       btop = btopTheme;
@@ -336,6 +348,7 @@ let
       cp ${t.mako} "$out/share/omarchy/themes/${t.name}/mako.ini"
       cp ${t.waybar} "$out/share/omarchy/themes/${t.name}/waybar.css"
       cp ${t.walker} "$out/share/omarchy/themes/${t.name}/walker.css"
+      cp ${t.swayosd} "$out/share/omarchy/themes/${t.name}/swayosd.css"
       cp ${t.neovim} "$out/share/omarchy/themes/${t.name}/neovim.lua"
       cp ${t.neovimPalette} "$out/share/omarchy/themes/${t.name}/neovim-palette.lua"
       cp ${t.btop} "$out/share/omarchy/themes/${t.name}/btop.theme"
@@ -400,6 +413,7 @@ let
       procps
       swaybg
       restartWalker
+      restartSwayosd
     ];
     text = ''
       export XDG_DATA_DIRS="${schemas}:''${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
@@ -557,12 +571,13 @@ let
         echo "omarchy: wallpaper ''${backgrounds[$idx]}"
       }
 
-      # Built-in palettes ship hyprlock/mako/waybar/walker/neovim/btop and
-      # chromium.theme snippets. User themes that only drop colors.toml get
+      # Built-in palettes ship hyprlock/mako/waybar/walker/swayosd/neovim/btop
+      # and chromium.theme snippets. User themes that only drop colors.toml get
       # the same files generated so one command still retints lock,
-      # notifications, the bar, launcher, Neovim, and btop. Chromium chrome
+      # notifications, the bar, launcher, OSD, Neovim, and btop. Chromium chrome
       # is a NixOS managed policy keyed off theme.name — generating
-      # chromium.theme here does not rewrite /etc.
+      # chromium.theme here does not rewrite /etc. hyprsunset is not a
+      # palette surface.
       ensure_surface_snippets() {
         colors="$current_dir/colors.toml"
         if [ ! -f "$colors" ]; then
@@ -664,6 +679,16 @@ let
             "@define-color foreground ''${fg};" \
             "@define-color background ''${bg};" \
             > "$current_dir/walker.css"
+        fi
+
+        if [ ! -f "$current_dir/swayosd.css" ]; then
+          printf '%s\n' \
+            "@define-color background-color ''${bg};" \
+            "@define-color border-color ''${fg};" \
+            "@define-color label ''${fg};" \
+            "@define-color image ''${fg};" \
+            "@define-color progress ''${accent};" \
+            > "$current_dir/swayosd.css"
         fi
 
         if [ ! -f "$current_dir/neovim-palette.lua" ]; then
@@ -824,7 +849,7 @@ let
         staging="$(mktemp -d)"
         cp -a "$src/." "$staging/"
         # Store themes are 555/444; make the staging copy writable so we can
-        # record theme.name and generate missing lock/mako/waybar snippets.
+        # record theme.name and generate missing lock/mako/waybar/swayosd snippets.
         chmod -R u+w "$staging"
         printf '%s\n' "$name" > "$staging/theme.name"
         rm -rf "$current_dir"
@@ -889,6 +914,12 @@ let
         # re-read when that service restarts. Skip if Walker is not running.
         if command -v omarchy-restart-walker >/dev/null; then
           omarchy-restart-walker >/dev/null 2>&1 || true
+        fi
+
+        # swayosd-server reads style.css at start. Restart so @import of
+        # current/swayosd.css is picked up. No-op if the shell pillar is off.
+        if command -v omarchy-restart-swayosd >/dev/null; then
+          omarchy-restart-swayosd >/dev/null 2>&1 || true
         fi
 
         reload_nvim
@@ -1038,6 +1069,87 @@ let
         --output-filename "$outdir/satty-$(date +%Y%m%d-%H%M%S).png"
     '';
   };
+
+  # Omarchy's omarchy-swayosd-client: target the focused monitor so a
+  # multi-head setup does not show the OSD on every output (swayosd 0.3
+  # regression without --monitor).
+  swayosdClient = writeShellApplication {
+    name = "omarchy-swayosd-client";
+    runtimeInputs = [
+      jq
+      gnugrep
+    ];
+    text = ''
+      monitor=""
+      if command -v hyprctl >/dev/null; then
+        monitor="$(hyprctl monitors -j 2>/dev/null | jq -r '.[] | select(.focused == true).name' || true)"
+      fi
+      if [ -n "$monitor" ]; then
+        exec swayosd-client --monitor "$monitor" "$@"
+      fi
+      exec swayosd-client "$@"
+    '';
+  };
+
+  restartSwayosd = writeShellApplication {
+    name = "omarchy-restart-swayosd";
+    runtimeInputs = [ procps ];
+    text = ''
+      restarted=0
+      if command -v systemctl >/dev/null; then
+        systemctl --user daemon-reload >/dev/null 2>&1 || true
+        # Home Manager names the unit swayosd.service; Omarchy uses
+        # swayosd-server.service. Try both, then fall back to pkill.
+        if systemctl --user restart swayosd.service >/dev/null 2>&1; then
+          restarted=1
+        elif systemctl --user restart swayosd-server.service >/dev/null 2>&1; then
+          restarted=1
+        fi
+      fi
+      if [ "$restarted" -eq 0 ]; then
+        pkill -x swayosd-server >/dev/null 2>&1 || true
+      fi
+    '';
+  };
+
+  # Matches basecamp/omarchy bin/omarchy-toggle-nightlight (4000K / 6000K).
+  # Manual text says 6500K; the shipped script is 6000K. We start the
+  # Home Manager hyprsunset user unit instead of uwsm-app.
+  toggleNightlight = writeShellApplication {
+    name = "omarchy-toggle-nightlight";
+    runtimeInputs = [
+      procps
+      gnugrep
+      libnotify
+    ];
+    text = ''
+      ON_TEMP=4000
+      OFF_TEMP=6000
+
+      if ! pgrep -x hyprsunset >/dev/null; then
+        if command -v systemctl >/dev/null \
+          && systemctl --user start hyprsunset.service >/dev/null 2>&1; then
+          sleep 1
+        elif command -v hyprsunset >/dev/null; then
+          hyprsunset &
+          sleep 1
+        else
+          echo "omarchy-toggle-nightlight: hyprsunset is not installed" >&2
+          exit 1
+        fi
+      fi
+
+      current_temp="$(hyprctl hyprsunset temperature 2>/dev/null | grep -oE '[0-9]+' || true)"
+
+      if [ "$current_temp" = "$OFF_TEMP" ]; then
+        hyprctl hyprsunset temperature "$ON_TEMP"
+        notify-send -u low "  Nightlight screen temperature"
+      else
+        hyprctl hyprsunset temperature "$OFF_TEMP"
+        notify-send -u low "   Daylight screen temperature"
+      fi
+    '';
+  };
 in
 symlinkJoin {
   name = "omarchy-theme-tools";
@@ -1053,10 +1165,13 @@ symlinkJoin {
     screenshot
     launchWalker
     restartWalker
+    swayosdClient
+    restartSwayosd
+    toggleNightlight
     themesDrv
   ];
   meta = {
-    description = "Omarchy theme switcher, Walker helpers, wallpaper helper, and screenshot helper";
+    description = "Omarchy theme switcher, Walker helpers, wallpaper helper, screenshot helper, and nightlight/OSD helpers";
     license = lib.licenses.mit;
     mainProgram = "omarchy-theme-set";
     platforms = lib.platforms.linux;

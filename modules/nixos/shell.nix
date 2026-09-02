@@ -59,6 +59,25 @@ in
       # hypridle unit that would race the Home Manager one.
       security.pam.services.hyprlock = { };
 
+      # Caps/Num/Scroll Lock OSD. Must be a system unit (needs /dev/input);
+      # Home Manager cannot own it. udev + dbus configs come from the package.
+      # Volume/brightness remain Hyprland bindel/bindl → swayosd-client, same
+      # as Omarchy's media.conf — the backend is lock-key feedback, not a
+      # second volume path.
+      services.udev.packages = [ cfg.shell.osdPackage ];
+      services.dbus.packages = [ cfg.shell.osdPackage ];
+      systemd.services.swayosd-libinput-backend = {
+        description = "SwayOSD LibInput backend for Caps/Num/Scroll Lock";
+        documentation = [ "https://github.com/ErikReider/SwayOSD" ];
+        wantedBy = [ "graphical.target" ];
+        after = [ "graphical.target" ];
+        serviceConfig = {
+          Type = "simple";
+          ExecStart = lib.getExe' cfg.shell.osdPackage "swayosd-libinput-backend";
+          Restart = "on-failure";
+        };
+      };
+
       environment.systemPackages = [
         cfg.shell.terminalPackage
         cfg.shell.launcherPackage
@@ -66,7 +85,12 @@ in
         cfg.shell.lockPackage
         cfg.shell.idlePackage
         cfg.shell.notificationPackage
+        cfg.shell.nightlightPackage
+        cfg.shell.osdPackage
         pkgs.elephant
+        pkgs.playerctl
+        pkgs.jq
+        pkgs.libnotify
         pkgs.libqalculate
         pkgs.uwsm
         (pkgs.callPackage ../../pkgs/omarchy-theme-tools { })

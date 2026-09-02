@@ -31,12 +31,14 @@ in
         exec-once = [
           # Walker + Elephant are systemd user units (see walker.nix).
           # mako has no Home Manager systemd unit; start it with the session
-          # the way Omarchy does. hypridle is started by services.hypridle.
+          # the way Omarchy does. hypridle, hyprsunset, and swayosd are
+          # started by their user units — do not also exec-once them.
           "${notify}"
         ];
 
         layerrule = [
           "noanim, walker"
+          "noanim, swayosd"
         ];
 
         general = {
@@ -59,6 +61,7 @@ in
           "SUPER, Space, exec, $launcher"
           "SUPER CTRL, E, exec, $launcher -m symbols"
           "SUPER CTRL, L, exec, ${lock}"
+          "SUPER CTRL, N, exec, omarchy-toggle-nightlight"
           "SUPER, COMMA, exec, ${makoctl} dismiss"
           "SUPER SHIFT, COMMA, exec, ${makoctl} dismiss --all"
         ]
@@ -79,6 +82,31 @@ in
         bindm = [
           "SUPER, mouse:272, movewindow"
           "SUPER, mouse:273, resizewindow"
+        ];
+
+        # Omarchy media.conf: bindel/bindl so volume and brightness still
+        # work on the lock screen. Caps/Num/Scroll Lock OSD is the NixOS
+        # libinput backend, not a Hyprland bind (avoids double-firing).
+        "$osdclient" = "omarchy-swayosd-client";
+
+        bindel = [
+          ", XF86AudioRaiseVolume, exec, $osdclient --output-volume raise"
+          ", XF86AudioLowerVolume, exec, $osdclient --output-volume lower"
+          ", XF86AudioMute, exec, $osdclient --output-volume mute-toggle"
+          ", XF86AudioMicMute, exec, $osdclient --input-volume mute-toggle"
+          ", XF86MonBrightnessUp, exec, $osdclient --brightness raise"
+          ", XF86MonBrightnessDown, exec, $osdclient --brightness lower"
+          "ALT, XF86AudioRaiseVolume, exec, $osdclient --output-volume +1"
+          "ALT, XF86AudioLowerVolume, exec, $osdclient --output-volume -1"
+          "ALT, XF86MonBrightnessUp, exec, $osdclient --brightness +1"
+          "ALT, XF86MonBrightnessDown, exec, $osdclient --brightness -1"
+        ];
+
+        bindl = [
+          ", XF86AudioNext, exec, $osdclient --playerctl next"
+          ", XF86AudioPause, exec, $osdclient --playerctl play-pause"
+          ", XF86AudioPlay, exec, $osdclient --playerctl play-pause"
+          ", XF86AudioPrev, exec, $osdclient --playerctl previous"
         ];
 
       };

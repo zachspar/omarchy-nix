@@ -18,6 +18,7 @@
       self,
       nixpkgs,
       disko,
+      home-manager,
       ...
     }:
     let
@@ -75,7 +76,12 @@
       checks = forAllSystems (
         system:
         import ./tests/eval.nix {
-          inherit self lib system;
+          inherit
+            self
+            lib
+            system
+            home-manager
+            ;
           pkgs = nixpkgs.legacyPackages.${system};
         }
       );
