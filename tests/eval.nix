@@ -84,6 +84,8 @@ in
         !cfg.programs.omarchy.storage.disko.enable
         && cfg.services.snapper.configs.root.SUBVOLUME == "/"
         && cfg.services.snapper.configs.home.SUBVOLUME == "/home"
+        && !cfg.programs.omarchy.storage.limine.enable
+        && !cfg.boot.loader.limine.enable
         && lib.hasInfix "storage.luks.device" warnText
         && lib.hasInfix "is not Btrfs" warnText
         && !(cfg.boot.initrd.luks.devices ? cryptroot);
@@ -94,6 +96,7 @@ in
       throw ''
         default storage path should warn and never format
         disko.enable=${toString cfg.programs.omarchy.storage.disko.enable}
+        limine.enable=${toString cfg.programs.omarchy.storage.limine.enable}
         snapper.root=${cfg.services.snapper.configs.root.SUBVOLUME or "MISSING"}
         snapper.home=${cfg.services.snapper.configs.home.SUBVOLUME or "MISSING"}
         has-luks-warn=${toString (lib.hasInfix "storage.luks.device" warnText)}
@@ -131,7 +134,9 @@ in
         && cfg.boot.initrd.luks.devices ? cryptroot
         && !(lib.hasInfix "storage.luks.device" warnText)
         && cfg.services.snapper.configs.root.SUBVOLUME == "/"
-        && cfg.services.snapper.configs.home.SUBVOLUME == "/home";
+        && cfg.services.snapper.configs.home.SUBVOLUME == "/home"
+        && !cfg.programs.omarchy.storage.limine.enable
+        && !cfg.boot.loader.limine.enable;
     in
     if ok then
       pkgs.runCommand "omarchy-eval-storage-disko" { } "touch $out"
@@ -143,7 +148,60 @@ in
         has-cryptroot=${toString (cfg.boot.initrd.luks.devices ? cryptroot)}
         luks-warn=${toString (lib.hasInfix "storage.luks.device" warnText)}
         snapper.root=${cfg.services.snapper.configs.root.SUBVOLUME or "MISSING"}
+        limine=${toString cfg.programs.omarchy.storage.limine.enable}
         options=/ ${toString (fs."/".options or [ ])}
+        warnings=${warnText}
+      '';
+
+  eval-storage-limine =
+    let
+      host = mkHost [
+        self.nixosModules.omarchy
+        self.nixosModules.disko
+        pillarsOff
+        {
+          programs.omarchy.enable = true;
+          programs.omarchy.storage.disko.enable = true;
+          programs.omarchy.storage.disko.device = "/dev/vda";
+          programs.omarchy.storage.limine.enable = true;
+        }
+      ];
+      cfg = host.config;
+      etcLimine = cfg.environment.etc."default/limine".text;
+      extra = cfg.boot.loader.limine.extraEntries;
+      install = cfg.boot.loader.limine.extraInstallCommands;
+      warnText = lib.concatStringsSep "\n" cfg.warnings;
+      ok =
+        cfg.programs.omarchy.storage.limine.enable
+        && cfg.boot.loader.limine.enable
+        && !cfg.boot.loader.systemd-boot.enable
+        && !cfg.boot.loader.grub.enable
+        && lib.hasInfix "/Snapshots" extra
+        && lib.hasInfix "omarchy-snapshot restore" extra
+        && lib.hasInfix "omarchy-limine-snapper sync" install
+        && lib.hasInfix "ESP_PATH=" etcLimine
+        && lib.hasInfix "ROOT_SNAPSHOTS_PATH=\"/@/.snapshots\"" etcLimine
+        && lib.hasInfix "MAX_SNAPSHOT_ENTRIES=5" etcLimine
+        && cfg.boot.loader.limine.style.interface.branding == "Omarchy Bootloader"
+        && cfg.systemd.services ? omarchy-limine-snapper
+        && cfg.systemd.paths ? omarchy-limine-snapper
+        && cfg.environment.etc ? "xdg/autostart/omarchy-snapshot-notify.desktop"
+        && cfg.fileSystems."/boot".fsType == "vfat"
+        && cfg.services.snapper.configs.root.SUBVOLUME == "/"
+        && !(lib.hasInfix "boot.initrd.systemd.enable" warnText);
+    in
+    if ok then
+      pkgs.runCommand "omarchy-eval-storage-limine" { } "touch $out"
+    else
+      throw ''
+        limine + snapper-sync path should take over the bootloader and leave /Snapshots
+        limine.enable=${toString cfg.boot.loader.limine.enable}
+        systemd-boot=${toString cfg.boot.loader.systemd-boot.enable}
+        extra=${extra}
+        install=${install}
+        branding=${cfg.boot.loader.limine.style.interface.branding or "MISSING"}
+        has-service=${toString (cfg.systemd.services ? omarchy-limine-snapper)}
+        etc-limine=${etcLimine}
         warnings=${warnText}
       '';
 }

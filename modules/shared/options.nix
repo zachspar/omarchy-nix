@@ -355,6 +355,50 @@ in
           '';
         };
       };
+
+      limine = {
+        enable = mkOption {
+          type = types.bool;
+          default = false;
+          description = ''
+            DANGER: opt-in bootloader switch. When true, this module
+            enables nixpkgs `boot.loader.limine`, turns systemd-boot and
+            GRUB off, and installs a NixOS equivalent of Omarchy's
+            Limine + snapper-sync path: Snapper snapshots of `@` appear
+            under a `/Snapshots` menu on the ESP.
+
+            Off by default. This is how you actually roll back a Btrfs
+            `@` from the firmware menu. systemd-boot generations only
+            re-activate a NixOS closure; they do not restore `@`.
+
+            Requires Snapper on `/` (`storage.snapper.snapshotRoot`) and
+            an ESP at `boot.loader.efi.efiSysMountPoint` (disko: `/boot`).
+          '';
+        };
+
+        maxSnapshotEntries = mkOption {
+          type = types.ints.positive;
+          default = 5;
+          description = ''
+            How many Snapper root snapshots appear in Limine. Matches
+            Omarchy's `MAX_SNAPSHOT_ENTRIES=5`. Older snapshots stay in
+            Snapper; only the ESP kernel copies and menu entries are
+            trimmed. 2G ESP (the disko default) is the floor.
+          '';
+        };
+
+        writableSnapshots = mkOption {
+          type = types.bool;
+          default = true;
+          description = ''
+            Clear the Btrfs `ro` property on snapshots that get a Limine
+            entry. NixOS activation wants a writable `/`. Omarchy's
+            `btrfs-overlayfs` initcpio hook is **not** enabled here —
+            that overlay makes `/` look like overlayfs and
+            `limine-snapper-sync --restore` refuses to run.
+          '';
+        };
+      };
     };
   };
 }

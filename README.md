@@ -17,7 +17,7 @@ All four are **on by default** once you set `programs.omarchy.enable = true`. Ea
 | **shell** | Hyprland + Walker + Ghostty feels like Omarchy at first login | Enables `programs.hyprland` (UWSM), Ghostty, Walker, Waybar, Elephant (Walker 2.x backend, including menus/clipboard/calc/files/symbols), **hyprlock + hypridle** (lock on idle), **mako** (notifications), and **SDDM + Plymouth** (greeter / unlock art). Home Manager writes the Hyprland/Ghostty/lock baseline, Walker config + GTK CSS, and keybinds. |
 | **theme** | One command / keybind flips GTK + Hyprland + terminal + icons + lock + notifications + bar + launcher + Neovim + btop + wallpaper together; Chromium chrome follows `theme.name` | `omarchy-theme-set <name>`, `omarchy-theme-next`, Walker theme picker on `Super+Ctrl+Shift+Space`. All official Omarchy packs. Wallpaper via swaybg. Chromium chrome is generation-bound (managed policy). |
 | **apps** | Browser, file manager, Neovim, screenshot + clipboard helpers | Chromium, Nautilus, Neovim, btop, grim/slurp/satty, wl-clipboard, cliphist. |
-| **storage** | LUKS2 + Btrfs `@` / `@home` + Snapper rollback | Documents and wires Snapper; optionally opens a LUKS device you already created. **Does not reformat disks unless you opt into `storage.disko`.** Does not treat an unencrypted ext4 root as equivalent. |
+| **storage** | LUKS2 + Btrfs `@` / `@home` + Snapper rollback, Limine snapshot menu | Documents and wires Snapper; optionally opens a LUKS device you already created; opt-in disko formats a disk; **opt-in Limine** puts Snapper `@` snapshots on the boot menu. **Does not reformat disks unless `storage.disko.enable`.** Does not treat an unencrypted ext4 root as equivalent. |
 
 ## Install Nix with Determinate
 
@@ -365,6 +365,8 @@ Create the LUKS container and subvolumes yourself (Calamares, disko by hand, or 
 
 It will **not** run `cryptsetup luksFormat` or `mkfs.btrfs`. You still need a `.snapshots` subvolume on each Snapper target (Snapper’s own requirement). Snapper is pointed at the mount points `/` and `/home`, not at Btrfs subvolume names — those names (`@`, `@home`) belong in your `fileSystems` declarations or in the disko snippet below.
 
+NixOS generations (systemd-boot or Limine’s NixOS menu) are not Snapper rollback. For boot-menu snapshot restore, enable `storage.limine` below.
+
 ### Opt-in: disko snippet (wipes the disk)
 
 `programs.omarchy.storage.disko.enable` is **off by default**. Turning it on writes `disko.devices` for the layout above. The next `disko` / `nixos-install` **destroys every partition** on `storage.disko.device`.
@@ -397,7 +399,50 @@ A full host sketch is [`examples/disko`](examples/disko) (`nix flake new -t gith
 
 NixOS rollbacks via `nixos-rebuild` / generation boot entries are complementary, not a substitute for filesystem snapshots. Omarchy’s story is both: generations for the store, Snapper for the live Btrfs subvolumes.
 
-Limine + `limine-snapper-sync` (what Omarchy’s ISO uses) is **not** wired yet. systemd-boot + NixOS generations work today; boot-menu snapshot boots are a roadmap item.
+### Opt-in: Limine + snapshot boot-menu rollback
+
+`programs.omarchy.storage.limine.enable` is **off by default**. Turning it on switches the bootloader to nixpkgs `boot.loader.limine` (systemd-boot and GRUB are forced off) and installs a NixOS equivalent of Omarchy’s Limine + snapper-sync path.
+
+Two different menus, two different rollbacks:
+
+| Limine menu | What it is | What it restores |
+| --- | --- | --- |
+| **NixOS** (generations) | `nixos-rebuild` closures. Kernel + initrd + `init=` for that generation. | The Nix store profile / activation. Live Btrfs `@` is unchanged. |
+| **Snapshots** | Snapper snapshots of `@`, taken on boot and on a timeline (and via `omarchy-snapshot create`). | The live root subvolume. `/home` (`@home`) is **not** rolled back — same as Omarchy. |
+
+How to roll back a bad update the Omarchy way:
+
+1. At the Limine menu, open **Snapshots** (not a NixOS generation).
+2. Pick a snapshot by date. That boot mounts `@/.snapshots/<id>/snapshot` as `/` (`rootflags=` on the cmdline). systemd initrd is required so those flags win.
+3. A notification offers restore. Or run `omarchy-snapshot restore`.
+4. That **replaces `@`** with the snapshot (`replace` method). Previous `@` is kept as `@-pre-restore-<timestamp>`. Reboot.
+
+```nix
+{
+  programs.omarchy.enable = true;
+  programs.omarchy.storage.disko.enable = true;
+  programs.omarchy.storage.disko.device = "/dev/nvme0n1";
+
+  # Replaces systemd-boot. ESP stays at /boot (disko default).
+  programs.omarchy.storage.limine.enable = true;
+  # programs.omarchy.storage.limine.maxSnapshotEntries = 5;
+}
+```
+
+Drop `boot.loader.systemd-boot.enable` from the host config — this option force-disables it. After the first rebuild, reboot through firmware if Limine is not already the first EFI entry.
+
+`omarchy-limine-snapper sync` runs after every bootloader install and whenever Snapper changes `/.snapshots`. Kernel/initrd copies live under `/boot/omarchy-snapshots/<id>/`, **outside** `/boot/limine/`, so nixpkgs `limine-install.py` cannot delete them when it rewrites generation entries.
+
+`/etc/default/limine` is written for the same knobs Omarchy ships (`ESP_PATH`, `ROOT_SNAPSHOTS_PATH=/@/.snapshots`, `MAX_SNAPSHOT_ENTRIES=5`). The Limine menu chrome follows `programs.omarchy.theme.name` at rebuild time (same constraint as Plymouth).
+
+#### Honest limits
+
+- **Not upstream `limine-snapper-sync`.** That tool is a GraalVM native-image and is **not in nixpkgs**. This flake ships `omarchy-limine-snapper` instead of vendoring a binary or pinning GraalVM 25. If nixpkgs ever packages it, the `/etc/default/limine` keys are already the ones it reads.
+- **No `btrfs-overlayfs`.** Omarchy’s mkinitcpio hook overlays `/` on every snapshot boot; `limine-snapper-sync --restore` then exits because `/` is not Btrfs. We leave snapshots as Btrfs and clear `ro` so NixOS activation can write (`storage.limine.writableSnapshots`, default on). A snapshot you boot is no longer a 1:1 frozen copy — restore immediately.
+- **systemd initrd.** Snapshot entries pass `rootflags=subvol=@/.snapshots/<id>/snapshot`. Traditional NixOS stage-1 may ignore that and mount `@` from the generation’s baked-in filesystems. nixos-unstable already enables systemd initrd; keep it.
+- **`/nix` must live on `@`.** A separate `@nix` subvolume is not the Omarchy layout; booting an old snapshot would see today’s store.
+- **UKI / Direct Boot** (Omarchy’s EFI skip-the-menu path) is not ported. Timeout stays the NixOS Limine default so you can actually pick a snapshot.
+- **`omarchy-snapshot restore` is root `@` only.** Home snapshots exist for Snapper; they are not a Limine menu and are not applied by restore.
 
 Unlock *art* for the LUKS prompt is Plymouth (`programs.omarchy.shell.greeter.plymouth`), not this storage module. See [Greeter and unlock art](#greeter-and-unlock-art).
 
@@ -442,7 +487,9 @@ Ordered the way the pillars were stubbed.
    - [x] Snapper configs + boot snapshot (mount points `/` and `/home`)
    - [x] Optional `storage.luks.device` wiring
    - [x] Opt-in `storage.disko` snippet (`@` / `@home` / `@log` / `@pkg` + Snapper `.snapshots`; wipes the disk)
-   - [ ] Limine + snapper-sync boot-menu rollback
+   - [x] Opt-in Limine + snapshot boot-menu rollback (`storage.limine`; NixOS equivalent of snapper-sync — see limits above)
+   - [ ] Swap `omarchy-limine-snapper` for nixpkgs `limine-snapper-sync` if/when it is packaged
+   - [ ] Omarchy Direct Boot (EFI entry that skips the Limine menu)
    - [x] Initrd unlock theme (`unlock.png` via Plymouth; see greeter limits above)
 
 ## Outputs
@@ -455,7 +502,8 @@ Ordered the way the pillars were stubbed.
 | `homeManagerModules.default` / `homeManagerModules.omarchy` | User Hyprland / Ghostty / theme stubs |
 | `packages.<system>.omarchy-theme-tools` | Theme CLI + Walker launch/restart + wallpaper helper + screenshot helper + official palettes |
 | `packages.<system>.omarchy-greeter` | SDDM theme + Plymouth unlock theme (official `unlock.png`, recolored chrome) |
-| `overlays.default` | Exposes `omarchy-theme-tools` and `omarchy-greeter` |
+| `packages.<system>.omarchy-limine-snapper` | `omarchy-snapshot` / `omarchy-limine-snapper` — Limine `/Snapshots` sync and `@` restore |
+| `overlays.default` | Exposes `omarchy-theme-tools`, `omarchy-greeter`, and `omarchy-limine-snapper` |
 | `templates.minimal` | `nix flake new -t github:zachspar/omarchy-nix#minimal` |
 | `templates.disko` | Same, with `storage.disko` on — **wipes the named disk** |
 | `formatter` | `nixfmt-rfc-style` |
