@@ -31,7 +31,7 @@ in
 
         xdg.configFile."nvim/lua/omarchy-theme.lua".source = ./omarchy-theme.lua;
 
-        programs.neovim.extraLuaConfig = ''
+        programs.neovim.initLua = ''
           require("omarchy-theme").setup()
         '';
       })
