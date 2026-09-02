@@ -58,6 +58,7 @@ in
         ]
         ++ lib.optionals cfg.theme.enable [
           "SUPER CTRL SHIFT, Space, exec, omarchy-theme-next"
+          "SUPER CTRL, Space, exec, omarchy-theme-bg-next"
         ]
         ++ lib.optionals cfg.apps.enable [
           "SUPER, B, exec, $browser"

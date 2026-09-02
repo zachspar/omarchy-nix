@@ -20,8 +20,8 @@ in
 
     environment.sessionVariables.OMARCHY_THEME = cfg.theme.name;
 
-    # TODO: remaining theme packs (Neovim, btop, Chromium policy, Walker,
-    # wallpapers). Palettes already retint GTK, Hyprland, Ghostty, icons,
-    # hyprlock, mako, and Waybar.
+    # TODO: Neovim, btop, Chromium policy, Walker. Official palettes already
+    # retint GTK, Hyprland, Ghostty, icons, hyprlock, mako, Waybar, and
+    # wallpaper (swaybg; backgrounds fetched from basecamp/omarchy).
   };
 }

@@ -66,8 +66,8 @@ in
       lockPackage = mkPackageOption pkgs "hyprlock" {
         extraDescription = ''
           Screen locker. The NixOS module installs PAM (`security.pam.services.hyprlock`);
-          without that, hyprlock cannot unlock. Theme packs retint lock colors;
-          wallpaper/art is a later milestone.
+          without that, hyprlock cannot unlock.           Theme packs retint lock colors;
+          the desktop wallpaper is set by the theme pillar (swaybg).
         '';
       };
 
@@ -91,7 +91,7 @@ in
       enable = mkPillarEnable ''
         Theme pillar: one command (`omarchy-theme-set`) and one keybind
         (`Super+Ctrl+Shift+Space`) that flip GTK, Hyprland, Ghostty, icons,
-        hyprlock, mako, and Waybar together.
+        hyprlock, mako, Waybar, and wallpaper together.
       '';
 
       name = mkOption {
@@ -99,11 +99,14 @@ in
         default = "tokyo-night";
         example = "catppuccin-latte";
         description = ''
-          Default theme applied at login. Built-in stubs: `tokyo-night`
-          (dark) and `catppuccin-latte` (light). Each flip retints GTK,
-          Hyprland, Ghostty, icons, hyprlock, mako, and Waybar. Remaining
-          packs (wallpapers, Neovim, btop, Chromium, Walker) are a later
-          parity milestone — see the README roadmap.
+          Default theme applied at login. Official packs: `catppuccin`,
+          `catppuccin-latte`, `ethereal`, `everforest`, `flexoki-light`,
+          `gruvbox`, `hackerman`, `kanagawa`, `last-horizon`, `lumon`,
+          `lupine`, `matte-black`, `miasma`, `nord`, `osaka-jade`,
+          `retro-82`, `ristretto`, `rose-pine`, `solitude`, `tokyo-night`,
+          `vantablack`, `white`. Each flip retints GTK, Hyprland, Ghostty,
+          icons, hyprlock, mako, Waybar, and the wallpaper (swaybg).
+          Neovim, btop, Chromium, and Walker packs are a later milestone.
         '';
       };
     };
