@@ -15,6 +15,8 @@ in
   config = lib.mkIf (cfg.enable && cfg.shell.enable) {
     wayland.windowManager.hyprland = {
       enable = true;
+      # Stub settings are hyprlang; Omarchy upstream is moving toward Lua.
+      configType = "hyprlang";
       systemd.enable = !cfg.shell.withUWSM;
       settings = {
         "$terminal" = terminal;
@@ -41,21 +43,20 @@ in
           kb_options = "compose:caps";
         };
 
-        bind =
-          [
-            "SUPER, Return, exec, $terminal"
-            "SUPER, Space, exec, $launcher"
-          ]
-          ++ lib.optionals cfg.theme.enable [
-            "SUPER CTRL SHIFT, Space, exec, omarchy-theme-next"
-          ]
-          ++ lib.optionals cfg.apps.enable [
-            "SUPER, B, exec, $browser"
-            "SUPER SHIFT, F, exec, $fileManager"
-            "SUPER, N, exec, $terminal -e ${editor}"
-            "SUPER SHIFT, S, exec, omarchy-screenshot"
-            "SUPER, V, exec, $launcher -m clipboard"
-          ];
+        bind = [
+          "SUPER, Return, exec, $terminal"
+          "SUPER, Space, exec, $launcher"
+        ]
+        ++ lib.optionals cfg.theme.enable [
+          "SUPER CTRL SHIFT, Space, exec, omarchy-theme-next"
+        ]
+        ++ lib.optionals cfg.apps.enable [
+          "SUPER, B, exec, $browser"
+          "SUPER SHIFT, F, exec, $fileManager"
+          "SUPER, N, exec, $terminal -e ${editor}"
+          "SUPER SHIFT, S, exec, omarchy-screenshot"
+          "SUPER, V, exec, $launcher -m clipboard"
+        ];
 
         bindm = [
           "SUPER, mouse:272, movewindow"

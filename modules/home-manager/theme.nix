@@ -25,8 +25,7 @@ in
     };
 
     dconf.settings."org/gnome/desktop/interface" = {
-      color-scheme =
-        if cfg.theme.name == "catppuccin-latte" then "prefer-light" else "prefer-dark";
+      color-scheme = if cfg.theme.name == "catppuccin-latte" then "prefer-light" else "prefer-dark";
     };
 
     # Seed writable state so Hyprland can `source` a theme file before the

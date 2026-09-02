@@ -8,10 +8,8 @@ let
   cfg = config.programs.omarchy;
   storage = cfg.storage;
 
-  rootIsBtrfs =
-    config.fileSystems ? "/" && config.fileSystems."/".fsType == "btrfs";
-  homeIsBtrfs =
-    config.fileSystems ? "/home" && config.fileSystems."/home".fsType == "btrfs";
+  rootIsBtrfs = config.fileSystems ? "/" && config.fileSystems."/".fsType == "btrfs";
+  homeIsBtrfs = config.fileSystems ? "/home" && config.fileSystems."/home".fsType == "btrfs";
 in
 {
   config = lib.mkIf (cfg.enable && storage.enable) {
