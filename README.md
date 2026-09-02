@@ -14,8 +14,8 @@ All four are **on by default** once you set `programs.omarchy.enable = true`. Ea
 
 | Pillar | What “done” looks like | This stub |
 | --- | --- | --- |
-| **shell** | Hyprland + Walker + Ghostty feels like Omarchy at first login | Enables `programs.hyprland` (UWSM), Ghostty, Walker, Waybar, Elephant (Walker 2.x backend), **hyprlock + hypridle** (lock on idle), and **mako** (notifications). Home Manager writes the Hyprland/Ghostty/lock baseline and keybinds. |
-| **theme** | One command / keybind flips GTK + Hyprland + terminal + icons + lock + notifications + bar + wallpaper together | `omarchy-theme-set <name>`, `omarchy-theme-next`, `Super+Ctrl+Shift+Space`. All official Omarchy packs. Wallpaper via swaybg. |
+| **shell** | Hyprland + Walker + Ghostty feels like Omarchy at first login | Enables `programs.hyprland` (UWSM), Ghostty, Walker, Waybar, Elephant (Walker 2.x backend, including menus/clipboard/calc/files/symbols), **hyprlock + hypridle** (lock on idle), and **mako** (notifications). Home Manager writes the Hyprland/Ghostty/lock baseline, Walker config + GTK CSS, and keybinds. |
+| **theme** | One command / keybind flips GTK + Hyprland + terminal + icons + lock + notifications + bar + launcher + wallpaper together | `omarchy-theme-set <name>`, `omarchy-theme-next`, Walker theme picker on `Super+Ctrl+Shift+Space`. All official Omarchy packs. Wallpaper via swaybg. |
 | **apps** | Browser, file manager, Neovim, screenshot + clipboard helpers | Chromium, Nautilus, Neovim, grim/slurp/satty, wl-clipboard, cliphist. |
 | **storage** | LUKS2 + Btrfs `@` / `@home` + Snapper rollback | Documents and wires Snapper; optionally opens a LUKS device you already created. **Does not reformat disks. Does not treat an unencrypted ext4 root as equivalent.** |
 
@@ -145,13 +145,15 @@ Under Home Manager-as-a-NixOS-module, the HM module reads `osConfig.programs.oma
 
 | Action | How |
 | --- | --- |
-| Cycle themes | `omarchy-theme-next` or `Super+Ctrl+Shift+Space` |
+| Theme picker | `Super+Ctrl+Shift+Space` (Walker `menus:omarchythemes`) |
+| Wallpaper picker | `Super+Ctrl+Space` (Walker `menus:omarchyBackgroundSelector`) |
+| Cycle themes | `omarchy-theme-next` |
 | Set a theme | `omarchy-theme-set tokyo-night` |
 | List themes | `omarchy-theme-list` |
-| Next wallpaper | `omarchy-theme-bg-next` or `Super+Ctrl+Space` |
+| Next wallpaper | `omarchy-theme-bg-next` |
 | Set wallpaper | `omarchy-theme-bg-set ~/Pictures/wall.webp` |
 
-Each flip updates GTK (`gsettings` color-scheme + theme), icon theme, Hyprland border colors, the Ghostty `omarchy` theme file, hyprlock color tokens, mako notification colors, Waybar CSS (`@foreground` / `@background`), and the desktop wallpaper (swaybg).
+Each flip updates GTK (`gsettings` color-scheme + theme), icon theme, Hyprland border colors, the Ghostty `omarchy` theme file, hyprlock color tokens, mako notification colors, Waybar CSS (`@foreground` / `@background`), Walker GTK CSS (`@selected-text` / `@text` / `@base` / `@border`), and the desktop wallpaper (swaybg).
 
 Official packs, colors from basecamp/omarchy `themes/*/colors.toml`:
 
@@ -159,7 +161,7 @@ Official packs, colors from basecamp/omarchy `themes/*/colors.toml`:
 
 Light packs: `catppuccin-latte`, `flexoki-light`, `lupine`, `rose-pine`, `white`.
 
-Drop extra theme directories in `~/.config/omarchy/themes/<name>/` (`colors.toml`, `hyprland.conf`, `ghostty`, `icons.theme`, `hyprlock.conf`, `mako.ini`, `waybar.css`, optional `light.mode`, optional `backgrounds/`). User themes win over the packaged packs. A theme that only ships `colors.toml` still gets lock / mako / Waybar snippets generated at apply time.
+Drop extra theme directories in `~/.config/omarchy/themes/<name>/` (`colors.toml`, `hyprland.conf`, `ghostty`, `icons.theme`, `hyprlock.conf`, `mako.ini`, `waybar.css`, `walker.css`, optional `light.mode`, optional `backgrounds/`). User themes win over the packaged packs. A theme that only ships `colors.toml` still gets lock / mako / Waybar / Walker snippets generated at apply time.
 
 ### Wallpaper
 
@@ -174,7 +176,7 @@ Add your own images (jpg / jpeg / png / gif / bmp / webp):
 
 User images in `~/.config/omarchy/backgrounds/<name>/` are merged with the pack and sorted. `omarchy-theme-bg-next` walks that list. A pack or user theme with no images still retints every other surface; the switcher prints where to drop files.
 
-`makoctl reload` and a Waybar `SIGUSR2` apply those surfaces without logging out. Hyprland reloads via `hyprctl`. **hyprlock has no reload IPC** — the next lock picks up the new colors; a lock already on screen keeps the old ones. The lock still uses a blurred screenshot, not the desktop wallpaper.
+`makoctl reload` and a Waybar `SIGUSR2` apply those surfaces without logging out. Hyprland reloads via `hyprctl`. Walker’s GTK service is restarted so it re-reads `walker.css`. **hyprlock has no reload IPC** — the next lock picks up the new colors; a lock already on screen keeps the old ones. The lock still uses a blurred screenshot, not the desktop wallpaper.
 
 ### Shell keybinds (Home Manager)
 
@@ -182,6 +184,7 @@ User images in `~/.config/omarchy/backgrounds/<name>/` are merged with the pack 
 | --- | --- |
 | `Super+Return` | Ghostty |
 | `Super+Space` | Walker |
+| `Super+Ctrl+E` | Walker symbols (emoji) |
 | `Super+Ctrl+L` | hyprlock |
 | `Super+,` | Dismiss last mako notification |
 | `Super+Shift+,` | Dismiss all mako notifications |
@@ -190,8 +193,19 @@ User images in `~/.config/omarchy/backgrounds/<name>/` are merged with the pack 
 | `Super+N` | Neovim in Ghostty |
 | `Super+Shift+S` | grim + slurp + satty |
 | `Super+V` | Walker clipboard provider |
-| `Super+Ctrl+Space` | Next wallpaper |
-| `Super+Ctrl+Shift+Space` | Next theme |
+| `Super+Ctrl+Space` | Wallpaper picker (Walker) |
+| `Super+Ctrl+Shift+Space` | Theme picker (Walker) |
+
+Walker is nixpkgs `walker` + `elephant`, not a private `omarchy-walker` binary. Home Manager writes Omarchy’s launcher stub:
+
+- `~/.config/walker/config.toml` — prefixes, default providers, `omarchy-default` theme
+- `~/.config/walker/themes/omarchy-default/{style.css,layout.xml}` — GTK CSS/layout from basecamp/omarchy (MIT)
+- `~/.config/elephant/{desktopapplications,calc,symbols}.toml`
+- `~/.config/elephant/menus/omarchy_themes.lua` and `omarchy_background_selector.lua` (theme pillar)
+
+Prefixes match Omarchy: `/` provider list, `.` files, `:` symbols, `=` calc, `@` websearch, `$` clipboard, `;` theme picker. `omarchy-launch-walker` keeps Elephant up, uses `GSK_RENDERER=cairo`, and opens at 644×300. `omarchy-restart-walker` bounces the user units after a theme flip.
+
+Not ported: Omarchy’s `omarchyunlocks` menu (feature-flag store), Walker logo/assets that are not in the public tree, and Omarchy 4’s native shell menu (this flake stays on Walker 2.x / Elephant, which is what nixpkgs has).
 
 Idle (hypridle, seconds from idle — same numbers as Omarchy’s `shell.json`):
 
@@ -263,22 +277,24 @@ Ordered the way the pillars were stubbed.
 1. **Shell**
    - [x] Hyprland via nixpkgs (`programs.hyprland`, UWSM)
    - [x] Ghostty via nixpkgs / Home Manager `programs.ghostty`
-   - [x] Walker via nixpkgs `walker` + `services.elephant`
+   - [x] Walker via nixpkgs `walker` + Elephant user unit
    - [x] Waybar (Omarchy’s actual status bar; Walker is the launcher)
    - [x] hyprlock + hypridle (lock on idle; PAM on NixOS)
    - [x] mako notifications
-   - [ ] Omarchy `omarchy-walker` branding, providers, and Walker GTK CSS
+   - [x] Walker config, GTK CSS, and Elephant providers (clipboard, calc, files, symbols, menus)
    - [ ] hyprsunset / swayosd defaults
    - [ ] SDDM (or equivalent) session + unlock art
    - [ ] Omarchy screensaver (`omarchy-launch-screensaver`) and idle-inhibit toggle
+   - [ ] Omarchy 4 native shell menu (Walker remains the launcher on this flake)
 
 2. **Theme**
    - [x] `omarchy-theme-set` / `--next` / `--list`
-   - [x] One keybind that retints GTK + Hyprland + Ghostty + icons + hyprlock + mako + Waybar
+   - [x] One keybind that retints GTK + Hyprland + Ghostty + icons + hyprlock + mako + Waybar + Walker
    - [x] Official Omarchy palettes (`catppuccin`, `catppuccin-latte`, `ethereal`, `everforest`, `flexoki-light`, `gruvbox`, `hackerman`, `kanagawa`, `last-horizon`, `lumon`, `lupine`, `matte-black`, `miasma`, `nord`, `osaka-jade`, `retro-82`, `ristretto`, `rose-pine`, `solitude`, `tokyo-night`, `vantablack`, `white`)
    - [x] Wallpaper: official `backgrounds/` fetched from basecamp/omarchy; apply-time switch via swaybg; user `backgrounds/` overlay
-   - [ ] Neovim, btop, Chromium, Walker retint
-   - [ ] Theme preview picker (Walker/Elephant `omarchythemes` provider)
+   - [x] Walker GTK CSS from `omarchy-theme-set` (`current/walker.css`)
+   - [x] Theme preview picker (Elephant `menus:omarchythemes`) and wallpaper picker (`menus:omarchyBackgroundSelector`)
+   - [ ] Neovim, btop, Chromium retint
 
 3. **Apps**
    - [x] Chromium, Nautilus, Neovim
@@ -300,7 +316,7 @@ Ordered the way the pillars were stubbed.
 | --- | --- |
 | `nixosModules.default` / `nixosModules.omarchy` | `programs.omarchy` |
 | `homeManagerModules.default` / `homeManagerModules.omarchy` | User Hyprland / Ghostty / theme stubs |
-| `packages.<system>.omarchy-theme-tools` | Theme CLI + wallpaper helper + screenshot helper + official palettes |
+| `packages.<system>.omarchy-theme-tools` | Theme CLI + Walker launch/restart + wallpaper helper + screenshot helper + official palettes |
 | `overlays.default` | Exposes `omarchy-theme-tools` |
 | `templates.minimal` | `nix flake new -t github:zachspar/omarchy-nix#minimal` |
 | `formatter` | `nixfmt-rfc-style` |

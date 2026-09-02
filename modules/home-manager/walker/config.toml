@@ -1,0 +1,57 @@
+# Omarchy Walker 2.x stub. Keys match basecamp/omarchy config/walker/config.toml
+# (Walker 2.17 / nixpkgs). Theme files live in this same config dir, so we do
+# not set additional_theme_location. There is no separate omarchy-walker binary.
+
+force_keyboard_focus = true
+selection_wrap = true
+theme = "omarchy-default"
+hide_action_hints = true
+
+[placeholders]
+"default" = { input = " Search...", list = "No Results" }
+
+[keybinds]
+quick_activate = []
+
+[columns]
+symbols = 1
+
+[providers]
+max_results = 256
+default = [
+  "desktopapplications",
+  "websearch",
+]
+empty = ["desktopapplications"]
+
+[[providers.prefixes]]
+prefix = "/"
+provider = "providerlist"
+
+[[providers.prefixes]]
+prefix = "."
+provider = "files"
+
+[[providers.prefixes]]
+prefix = ":"
+provider = "symbols"
+
+[[providers.prefixes]]
+prefix = "="
+provider = "calc"
+
+[[providers.prefixes]]
+prefix = "@"
+provider = "websearch"
+
+[[providers.prefixes]]
+prefix = "$"
+provider = "clipboard"
+
+[[providers.prefixes]]
+prefix = ";"
+provider = "menus:omarchythemes"
+
+[[emergencies]]
+text = "Restart Walker"
+command = "omarchy-restart-walker"

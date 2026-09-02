@@ -16,6 +16,8 @@
   procps,
   swaybg,
   fetchgit,
+  walker,
+  elephant,
 }:
 let
   palettes = import ../../modules/shared/palettes.nix;
@@ -131,6 +133,15 @@ let
         @define-color foreground ${hex p.foreground};
         @define-color background ${hex p.background};
       '';
+      # GTK CSS tokens consumed by Walker’s omarchy-default theme.
+      walkerCss = ''
+        @define-color selected-text ${hex p.accent};
+        @define-color text ${hex p.foreground};
+        @define-color base ${hex p.background};
+        @define-color border ${hex p.foreground};
+        @define-color foreground ${hex p.foreground};
+        @define-color background ${hex p.background};
+      '';
     in
     {
       inherit name;
@@ -143,6 +154,7 @@ let
       hyprlock = writeText "${name}-hyprlock.conf" hyprlock;
       mako = writeText "${name}-mako.ini" mako;
       waybar = writeText "${name}-waybar.css" waybar;
+      walker = writeText "${name}-walker.css" walkerCss;
     };
 
   rendered = lib.mapAttrs render palettes;
@@ -158,6 +170,7 @@ let
       cp ${t.hyprlock} "$out/share/omarchy/themes/${t.name}/hyprlock.conf"
       cp ${t.mako} "$out/share/omarchy/themes/${t.name}/mako.ini"
       cp ${t.waybar} "$out/share/omarchy/themes/${t.name}/waybar.css"
+      cp ${t.walker} "$out/share/omarchy/themes/${t.name}/walker.css"
       ${lib.optionalString (t.mode == "light") ''
         : > "$out/share/omarchy/themes/${t.name}/light.mode"
       ''}
@@ -170,6 +183,44 @@ let
 
   schemas = "${gsettings-desktop-schemas}/share/gsettings-schemas/${gsettings-desktop-schemas.name}";
 
+  restartWalker = writeShellApplication {
+    name = "omarchy-restart-walker";
+    runtimeInputs = [ procps ];
+    text = ''
+      restarted=0
+      if command -v systemctl >/dev/null; then
+        if systemctl --user restart omarchy-elephant.service >/dev/null 2>&1; then
+          restarted=1
+        fi
+        if systemctl --user restart omarchy-walker.service >/dev/null 2>&1; then
+          restarted=1
+        fi
+      fi
+      if [ "$restarted" -eq 0 ]; then
+        pkill -x elephant >/dev/null 2>&1 || true
+        pkill -f "walker --gapplication-service" >/dev/null 2>&1 || true
+      fi
+    '';
+  };
+
+  launchWalker = writeShellApplication {
+    name = "omarchy-launch-walker";
+    runtimeInputs = [
+      procps
+      walker
+      elephant
+    ];
+    text = ''
+      if ! pgrep -x elephant >/dev/null; then
+        elephant &
+      fi
+      if ! pgrep -f "walker --gapplication-service" >/dev/null; then
+        GSK_RENDERER=cairo walker --gapplication-service &
+      fi
+      exec env GSK_RENDERER=cairo walker --width 644 --maxheight 300 --minheight 300 "$@"
+    '';
+  };
+
   themeSet = writeShellApplication {
     name = "omarchy-theme-set";
     runtimeInputs = [
@@ -179,6 +230,7 @@ let
       glib
       procps
       swaybg
+      restartWalker
     ];
     text = ''
       export XDG_DATA_DIRS="${schemas}:''${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
@@ -336,9 +388,9 @@ let
         echo "omarchy: wallpaper ''${backgrounds[$idx]}"
       }
 
-      # Built-in palettes ship hyprlock/mako/waybar snippets. User themes that
-      # only drop colors.toml get the same files generated so one command still
-      # retints lock, notifications, and the bar.
+      # Built-in palettes ship hyprlock/mako/waybar/walker snippets. User themes
+      # that only drop colors.toml get the same files generated so one command
+      # still retints lock, notifications, the bar, and the launcher.
       ensure_surface_snippets() {
         colors="$current_dir/colors.toml"
         if [ ! -f "$colors" ]; then
@@ -382,6 +434,17 @@ let
             "@define-color foreground ''${fg};" \
             "@define-color background ''${bg};" \
             > "$current_dir/waybar.css"
+        fi
+
+        if [ ! -f "$current_dir/walker.css" ]; then
+          printf '%s\n' \
+            "@define-color selected-text ''${accent};" \
+            "@define-color text ''${fg};" \
+            "@define-color base ''${bg};" \
+            "@define-color border ''${fg};" \
+            "@define-color foreground ''${fg};" \
+            "@define-color background ''${bg};" \
+            > "$current_dir/walker.css"
         fi
       }
 
@@ -452,6 +515,12 @@ let
         # Full restart is the fallback if the bar ignores imported-file changes.
         if command -v pkill >/dev/null; then
           pkill -USR2 -x waybar >/dev/null 2>&1 || true
+        fi
+
+        # Walker keeps a GTK service alive; CSS @import of walker.css is
+        # re-read when that service restarts. Skip if Walker is not running.
+        if command -v omarchy-restart-walker >/dev/null; then
+          omarchy-restart-walker >/dev/null 2>&1 || true
         fi
 
         # hyprlock has no reload IPC. It sources current/hyprlock.conf the next
@@ -610,10 +679,12 @@ symlinkJoin {
     themeBgSet
     wallpaper
     screenshot
+    launchWalker
+    restartWalker
     themesDrv
   ];
   meta = {
-    description = "Omarchy theme switcher, wallpaper helper, and screenshot helper";
+    description = "Omarchy theme switcher, Walker helpers, wallpaper helper, and screenshot helper";
     license = lib.licenses.mit;
     mainProgram = "omarchy-theme-set";
     platforms = lib.platforms.linux;
