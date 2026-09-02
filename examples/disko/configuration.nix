@@ -30,6 +30,9 @@
   programs.omarchy.storage.disko.enable = true;
   programs.omarchy.storage.disko.device = "/dev/vda"; # CHANGE THIS
 
+  # Opt-in Limine + Snapper boot-menu rollback (replaces systemd-boot):
+  # programs.omarchy.storage.limine.enable = true;
+
   # disko owns fileSystems and boot.initrd.luks.devices. Do not also set
   # storage.luks.device or a hardware-configuration.nix that restates them.
 

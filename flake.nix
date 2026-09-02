@@ -54,6 +54,7 @@
       overlays.default = final: _prev: {
         omarchy-theme-tools = final.callPackage ./pkgs/omarchy-theme-tools { };
         omarchy-greeter = final.callPackage ./pkgs/omarchy-greeter { };
+        omarchy-limine-snapper = final.callPackage ./pkgs/omarchy-limine-snapper { };
       };
 
       packages = forAllSystems (
@@ -64,6 +65,7 @@
         rec {
           omarchy-theme-tools = pkgs.callPackage ./pkgs/omarchy-theme-tools { };
           omarchy-greeter = pkgs.callPackage ./pkgs/omarchy-greeter { };
+          omarchy-limine-snapper = pkgs.callPackage ./pkgs/omarchy-limine-snapper { };
           default = omarchy-theme-tools;
         }
       );

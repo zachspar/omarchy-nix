@@ -53,6 +53,9 @@
   #
   # New installs that should *create* that layout: see examples/disko.
   # That path wipes the target disk. This example does not.
+  #
+  # Boot-menu snapshot rollback (replaces systemd-boot with Limine):
+  # programs.omarchy.storage.limine.enable = true;
 
   system.stateVersion = "25.11";
 }
