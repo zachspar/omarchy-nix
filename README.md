@@ -15,7 +15,7 @@ All four are **on by default** once you set `programs.omarchy.enable = true`. Ea
 | Pillar | What “done” looks like | This stub |
 | --- | --- | --- |
 | **shell** | Hyprland + Walker + Ghostty feels like Omarchy at first login | Enables `programs.hyprland` (UWSM), Ghostty, Walker, Waybar, Elephant (Walker 2.x backend), **hyprlock + hypridle** (lock on idle), and **mako** (notifications). Home Manager writes the Hyprland/Ghostty/lock baseline and keybinds. |
-| **theme** | One command / keybind flips GTK + Hyprland + terminal + icons together | `omarchy-theme-set <name>`, `omarchy-theme-next`, `Super+Ctrl+Shift+Space`. Built-in palettes: `tokyo-night`, `catppuccin-latte`. |
+| **theme** | One command / keybind flips GTK + Hyprland + terminal + icons + lock + notifications + bar together | `omarchy-theme-set <name>`, `omarchy-theme-next`, `Super+Ctrl+Shift+Space`. Built-in palettes: `tokyo-night`, `catppuccin-latte`. |
 | **apps** | Browser, file manager, Neovim, screenshot + clipboard helpers | Chromium, Nautilus, Neovim, grim/slurp/satty, wl-clipboard, cliphist. |
 | **storage** | LUKS2 + Btrfs `@` / `@home` + Snapper rollback | Documents and wires Snapper; optionally opens a LUKS device you already created. **Does not reformat disks. Does not treat an unencrypted ext4 root as equivalent.** |
 
@@ -149,9 +149,11 @@ Under Home Manager-as-a-NixOS-module, the HM module reads `osConfig.programs.oma
 | Set a theme | `omarchy-theme-set tokyo-night` |
 | List themes | `omarchy-theme-list` |
 
-Each flip updates GTK (`gsettings` color-scheme + theme), icon theme, Hyprland border colors, and the Ghostty `omarchy` theme file.
+Each flip updates GTK (`gsettings` color-scheme + theme), icon theme, Hyprland border colors, the Ghostty `omarchy` theme file, hyprlock color tokens, mako notification colors, and Waybar CSS (`@foreground` / `@background`).
 
-Drop extra theme directories in `~/.config/omarchy/themes/<name>/` (`colors.toml`, `hyprland.conf`, `ghostty`, `icons.theme`, optional `light.mode`). User themes win over the packaged stubs.
+Drop extra theme directories in `~/.config/omarchy/themes/<name>/` (`colors.toml`, `hyprland.conf`, `ghostty`, `icons.theme`, `hyprlock.conf`, `mako.ini`, `waybar.css`, optional `light.mode`). User themes win over the packaged stubs. A theme that only ships `colors.toml` still gets lock / mako / Waybar snippets generated at apply time.
+
+`makoctl reload` and a Waybar `SIGUSR2` apply those surfaces without logging out. Hyprland reloads via `hyprctl`. **hyprlock has no reload IPC** — the next lock picks up the new colors; a lock already on screen keeps the old ones.
 
 ### Shell keybinds (Home Manager)
 
@@ -250,10 +252,10 @@ Ordered the way the pillars were stubbed.
 
 2. **Theme**
    - [x] `omarchy-theme-set` / `--next` / `--list`
-   - [x] One keybind that retints GTK + Hyprland + Ghostty + icons
+   - [x] One keybind that retints GTK + Hyprland + Ghostty + icons + hyprlock + mako + Waybar
    - [x] Two stub palettes (`tokyo-night`, `catppuccin-latte`)
    - [ ] Remaining official Omarchy palettes as first-class packs
-   - [ ] Waybar, hyprlock, Neovim, btop, Chromium, Walker, wallpaper retint
+   - [ ] Neovim, btop, Chromium, Walker, wallpaper retint
    - [ ] Theme preview picker (Walker/Elephant `omarchythemes` provider)
 
 3. **Apps**

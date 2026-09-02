@@ -20,8 +20,8 @@ in
 
     environment.sessionVariables.OMARCHY_THEME = cfg.theme.name;
 
-    # TODO: import full Omarchy theme packs (Waybar CSS, hyprlock, Neovim,
-    # btop, Chromium policy, wallpapers). The stub ships two palettes and a
-    # switcher that already retints GTK + Hyprland + Ghostty + icons.
+    # TODO: remaining theme packs (Neovim, btop, Chromium policy, Walker,
+    # wallpapers). Palettes already retint GTK, Hyprland, Ghostty, icons,
+    # hyprlock, mako, and Waybar.
   };
 }

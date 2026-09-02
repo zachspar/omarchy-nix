@@ -66,7 +66,8 @@ in
       lockPackage = mkPackageOption pkgs "hyprlock" {
         extraDescription = ''
           Screen locker. The NixOS module installs PAM (`security.pam.services.hyprlock`);
-          without that, hyprlock cannot unlock. Theme-pack art is a later milestone.
+          without that, hyprlock cannot unlock. Theme packs retint lock colors;
+          wallpaper/art is a later milestone.
         '';
       };
 
@@ -89,8 +90,8 @@ in
     theme = {
       enable = mkPillarEnable ''
         Theme pillar: one command (`omarchy-theme-set`) and one keybind
-        (`Super+Ctrl+Shift+Space`) that flip GTK, Hyprland, Ghostty, and
-        icons together.
+        (`Super+Ctrl+Shift+Space`) that flip GTK, Hyprland, Ghostty, icons,
+        hyprlock, mako, and Waybar together.
       '';
 
       name = mkOption {
@@ -99,9 +100,10 @@ in
         example = "catppuccin-latte";
         description = ''
           Default theme applied at login. Built-in stubs: `tokyo-night`
-          (dark) and `catppuccin-latte` (light). Full Omarchy theme packs
-          (wallpapers, Waybar CSS, hyprlock, Neovim, btop, Chromium) are
-          a later parity milestone — see the README roadmap.
+          (dark) and `catppuccin-latte` (light). Each flip retints GTK,
+          Hyprland, Ghostty, icons, hyprlock, mako, and Waybar. Remaining
+          packs (wallpapers, Neovim, btop, Chromium, Walker) are a later
+          parity milestone — see the README roadmap.
         '';
       };
     };
