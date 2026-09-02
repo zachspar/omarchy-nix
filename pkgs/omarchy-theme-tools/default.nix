@@ -142,6 +142,159 @@ let
         @define-color foreground ${hex p.foreground};
         @define-color background ${hex p.background};
       '';
+      # Omarchy default/themed/btop.theme.tpl, filled from colors.toml.
+      # Hand-written themes/*/btop.theme win when present.
+      generatedBtop = ''
+        # Main background, empty for terminal default, need to be empty if you want transparent background
+        theme[main_bg]="${hex p.background}"
+
+        # Main text color
+        theme[main_fg]="${hex p.foreground}"
+
+        # Title color for boxes
+        theme[title]="${hex p.foreground}"
+
+        # Highlight color for keyboard shortcuts
+        theme[hi_fg]="${hex p.accent}"
+
+        # Background color of selected item in processes box
+        theme[selected_bg]="${hex p.selection}"
+
+        # Foreground color of selected item in processes box
+        theme[selected_fg]="${hex p.accent}"
+
+        # Color of inactive/disabled text
+        theme[inactive_fg]="${hex p.muted}"
+
+        # Color of text appearing on top of graphs, i.e uptime and current network graph scaling
+        theme[graph_text]="${hex p.lightForeground}"
+
+        # Background color of the percentage meters
+        theme[meter_bg]="${hex p.selection}"
+
+        # Misc colors for processes box including mini cpu graphs, details memory graph and details status text
+        theme[proc_misc]="${hex p.lightForeground}"
+
+        # CPU, Memory, Network, Proc box outline colors
+        theme[cpu_box]="${hex p.magenta}"
+        theme[mem_box]="${hex p.green}"
+        theme[net_box]="${hex p.red}"
+        theme[proc_box]="${hex p.accent}"
+
+        # Box divider line and small boxes line color
+        theme[div_line]="${hex p.muted}"
+
+        # Temperature graph color (Green -> Yellow -> Red)
+        theme[temp_start]="${hex p.green}"
+        theme[temp_mid]="${hex p.yellow}"
+        theme[temp_end]="${hex p.red}"
+
+        # CPU graph colors (Teal -> Blue -> Magenta)
+        theme[cpu_start]="${hex p.cyan}"
+        theme[cpu_mid]="${hex p.blue}"
+        theme[cpu_end]="${hex p.magenta}"
+
+        # Mem/Disk free meter
+        theme[free_start]="${hex p.magenta}"
+        theme[free_mid]="${hex p.blue}"
+        theme[free_end]="${hex p.cyan}"
+
+        # Mem/Disk cached meter
+        theme[cached_start]="${hex p.blue}"
+        theme[cached_mid]="${hex p.cyan}"
+        theme[cached_end]="${hex p.magenta}"
+
+        # Mem/Disk available meter
+        theme[available_start]="${hex p.yellow}"
+        theme[available_mid]="${hex p.red}"
+        theme[available_end]="${hex p.red}"
+
+        # Mem/Disk used meter (Green -> Teal -> Blue)
+        theme[used_start]="${hex p.green}"
+        theme[used_mid]="${hex p.cyan}"
+        theme[used_end]="${hex p.blue}"
+
+        # Download graph colors
+        theme[download_start]="${hex p.yellow}"
+        theme[download_mid]="${hex p.red}"
+        theme[download_end]="${hex p.red}"
+
+        # Upload graph colors (Green -> Teal -> Blue)
+        theme[upload_start]="${hex p.green}"
+        theme[upload_mid]="${hex p.cyan}"
+        theme[upload_end]="${hex p.blue}"
+
+        # Process box color gradient for threads, mem and cpu usage
+        theme[process_start]="${hex p.cyan}"
+        theme[process_mid]="${hex p.blue}"
+        theme[process_end]="${hex p.magenta}"
+
+        # Graph gradient colors (spectrum shades from background to foreground)
+        theme[gradient_color_0]="${hex p.background}"
+        theme[gradient_color_1]="${hex p.lighterBackground}"
+        theme[gradient_color_2]="${hex p.selection}"
+        theme[gradient_color_3]="${hex p.muted}"
+        theme[gradient_color_4]="${hex p.darkForeground}"
+        theme[gradient_color_5]="${hex p.foreground}"
+        theme[gradient_color_6]="${hex p.lightForeground}"
+        theme[gradient_color_7]="${hex p.brightForeground}"
+      '';
+      officialDir = ../../modules/shared/official-themes + "/${name}";
+      neovimLua =
+        if builtins.pathExists (officialDir + "/neovim.lua") then
+          officialDir + "/neovim.lua"
+        else
+          writeText "${name}-neovim.lua" ''
+            -- No official neovim.lua in this pack (basecamp/omarchy).
+            -- omarchy-theme.lua applies highlight groups from neovim-palette.lua.
+            return {
+              {
+                "LazyVim/LazyVim",
+                opts = {
+                  colorscheme = "omarchy",
+                },
+              },
+            }
+          '';
+      btopTheme =
+        if builtins.pathExists (officialDir + "/btop.theme") then
+          officialDir + "/btop.theme"
+        else
+          writeText "${name}-btop.theme" generatedBtop;
+      neovimPalette = writeText "${name}-neovim-palette.lua" ''
+        -- Generated from official colors.toml.
+        return {
+          mode = "${p.mode}",
+          background = "${hex p.background}",
+          dark_background = "${hex p.darkBackground}",
+          darker_background = "${hex p.darkerBackground}",
+          lighter_background = "${hex p.lighterBackground}",
+          foreground = "${hex p.foreground}",
+          dark_foreground = "${hex p.darkForeground}",
+          light_foreground = "${hex p.lightForeground}",
+          bright_foreground = "${hex p.brightForeground}",
+          muted = "${hex p.muted}",
+          accent = "${hex p.accent}",
+          selection = "${hex p.selection}",
+          selection_foreground = "${hex p.selectionForeground}",
+          selection_background = "${hex p.selectionBackground}",
+          red = "${hex p.red}",
+          yellow = "${hex p.yellow}",
+          orange = "${hex p.orange}",
+          green = "${hex p.green}",
+          cyan = "${hex p.cyan}",
+          blue = "${hex p.blue}",
+          magenta = "${hex p.magenta}",
+          brown = "${hex p.brown}",
+          bright_red = "${hex p.brightRed}",
+          bright_yellow = "${hex p.brightYellow}",
+          bright_green = "${hex p.brightGreen}",
+          bright_cyan = "${hex p.brightCyan}",
+          bright_blue = "${hex p.brightBlue}",
+          bright_magenta = "${hex p.brightMagenta}",
+          cursor = "${hex p.cursor}",
+        }
+      '';
     in
     {
       inherit name;
@@ -155,6 +308,9 @@ let
       mako = writeText "${name}-mako.ini" mako;
       waybar = writeText "${name}-waybar.css" waybar;
       walker = writeText "${name}-walker.css" walkerCss;
+      neovim = neovimLua;
+      neovimPalette = neovimPalette;
+      btop = btopTheme;
     };
 
   rendered = lib.mapAttrs render palettes;
@@ -171,6 +327,9 @@ let
       cp ${t.mako} "$out/share/omarchy/themes/${t.name}/mako.ini"
       cp ${t.waybar} "$out/share/omarchy/themes/${t.name}/waybar.css"
       cp ${t.walker} "$out/share/omarchy/themes/${t.name}/walker.css"
+      cp ${t.neovim} "$out/share/omarchy/themes/${t.name}/neovim.lua"
+      cp ${t.neovimPalette} "$out/share/omarchy/themes/${t.name}/neovim-palette.lua"
+      cp ${t.btop} "$out/share/omarchy/themes/${t.name}/btop.theme"
       ${lib.optionalString (t.mode == "light") ''
         : > "$out/share/omarchy/themes/${t.name}/light.mode"
       ''}
@@ -388,9 +547,10 @@ let
         echo "omarchy: wallpaper ''${backgrounds[$idx]}"
       }
 
-      # Built-in palettes ship hyprlock/mako/waybar/walker snippets. User themes
-      # that only drop colors.toml get the same files generated so one command
-      # still retints lock, notifications, the bar, and the launcher.
+      # Built-in palettes ship hyprlock/mako/waybar/walker/neovim/btop snippets.
+      # User themes that only drop colors.toml get the same files generated so
+      # one command still retints lock, notifications, the bar, launcher,
+      # Neovim, and btop.
       ensure_surface_snippets() {
         colors="$current_dir/colors.toml"
         if [ ! -f "$colors" ]; then
@@ -407,6 +567,53 @@ let
         if [ -z "$bg" ] || [ -z "$fg" ] || [ -z "$accent" ]; then
           return
         fi
+
+        muted="$(toml_color muted "$colors")"
+        selection="$(toml_color selection "$colors")"
+        dark_bg="$(toml_color dark_background "$colors")"
+        darker_bg="$(toml_color darker_background "$colors")"
+        lighter_bg="$(toml_color lighter_background "$colors")"
+        dark_fg="$(toml_color dark_foreground "$colors")"
+        light_fg="$(toml_color light_foreground "$colors")"
+        bright_fg="$(toml_color bright_foreground "$colors")"
+        red="$(toml_color red "$colors")"
+        yellow="$(toml_color yellow "$colors")"
+        orange="$(toml_color orange "$colors")"
+        green="$(toml_color green "$colors")"
+        cyan="$(toml_color cyan "$colors")"
+        blue="$(toml_color blue "$colors")"
+        magenta="$(toml_color magenta "$colors")"
+        brown="$(toml_color brown "$colors")"
+        bright_red="$(toml_color bright_red "$colors")"
+        bright_yellow="$(toml_color bright_yellow "$colors")"
+        bright_green="$(toml_color bright_green "$colors")"
+        bright_cyan="$(toml_color bright_cyan "$colors")"
+        bright_blue="$(toml_color bright_blue "$colors")"
+        bright_magenta="$(toml_color bright_magenta "$colors")"
+        mode="$(toml_color mode "$colors")"
+        muted="''${muted:-$bg}"
+        selection="''${selection:-$accent}"
+        dark_bg="''${dark_bg:-$bg}"
+        darker_bg="''${darker_bg:-$bg}"
+        lighter_bg="''${lighter_bg:-$bg}"
+        dark_fg="''${dark_fg:-$muted}"
+        light_fg="''${light_fg:-$fg}"
+        bright_fg="''${bright_fg:-$fg}"
+        red="''${red:-$fg}"
+        yellow="''${yellow:-$fg}"
+        orange="''${orange:-$yellow}"
+        green="''${green:-$fg}"
+        cyan="''${cyan:-$fg}"
+        blue="''${blue:-$accent}"
+        magenta="''${magenta:-$fg}"
+        brown="''${brown:-$orange}"
+        bright_red="''${bright_red:-$red}"
+        bright_yellow="''${bright_yellow:-$yellow}"
+        bright_green="''${bright_green:-$green}"
+        bright_cyan="''${bright_cyan:-$cyan}"
+        bright_blue="''${bright_blue:-$blue}"
+        bright_magenta="''${bright_magenta:-$magenta}"
+        mode="''${mode:-dark}"
 
         if [ ! -f "$current_dir/hyprlock.conf" ]; then
           bg_rgb="$(hex_to_rgb "$bg")"
@@ -446,6 +653,132 @@ let
             "@define-color background ''${bg};" \
             > "$current_dir/walker.css"
         fi
+
+        if [ ! -f "$current_dir/neovim-palette.lua" ]; then
+          printf '%s\n' \
+            "return {" \
+            "  mode = \"''${mode}\"," \
+            "  background = \"''${bg}\"," \
+            "  dark_background = \"''${dark_bg}\"," \
+            "  darker_background = \"''${darker_bg}\"," \
+            "  lighter_background = \"''${lighter_bg}\"," \
+            "  foreground = \"''${fg}\"," \
+            "  dark_foreground = \"''${dark_fg}\"," \
+            "  light_foreground = \"''${light_fg}\"," \
+            "  bright_foreground = \"''${bright_fg}\"," \
+            "  muted = \"''${muted}\"," \
+            "  accent = \"''${accent}\"," \
+            "  selection = \"''${selection}\"," \
+            "  selection_foreground = \"''${bright_fg}\"," \
+            "  selection_background = \"''${selection}\"," \
+            "  red = \"''${red}\"," \
+            "  yellow = \"''${yellow}\"," \
+            "  orange = \"''${orange}\"," \
+            "  green = \"''${green}\"," \
+            "  cyan = \"''${cyan}\"," \
+            "  blue = \"''${blue}\"," \
+            "  magenta = \"''${magenta}\"," \
+            "  brown = \"''${brown}\"," \
+            "  bright_red = \"''${bright_red}\"," \
+            "  bright_yellow = \"''${bright_yellow}\"," \
+            "  bright_green = \"''${bright_green}\"," \
+            "  bright_cyan = \"''${bright_cyan}\"," \
+            "  bright_blue = \"''${bright_blue}\"," \
+            "  bright_magenta = \"''${bright_magenta}\"," \
+            "  cursor = \"''${bright_fg}\"," \
+            "}" \
+            > "$current_dir/neovim-palette.lua"
+        fi
+
+        if [ ! -f "$current_dir/neovim.lua" ]; then
+          printf '%s\n' \
+            "return {" \
+            "  {" \
+            "    \"LazyVim/LazyVim\"," \
+            "    opts = {" \
+            "      colorscheme = \"omarchy\"," \
+            "    }," \
+            "  }," \
+            "}" \
+            > "$current_dir/neovim.lua"
+        fi
+
+        if [ ! -f "$current_dir/btop.theme" ]; then
+          printf '%s\n' \
+            "theme[main_bg]=\"''${bg}\"" \
+            "theme[main_fg]=\"''${fg}\"" \
+            "theme[title]=\"''${fg}\"" \
+            "theme[hi_fg]=\"''${accent}\"" \
+            "theme[selected_bg]=\"''${selection}\"" \
+            "theme[selected_fg]=\"''${accent}\"" \
+            "theme[inactive_fg]=\"''${muted}\"" \
+            "theme[graph_text]=\"''${light_fg}\"" \
+            "theme[meter_bg]=\"''${selection}\"" \
+            "theme[proc_misc]=\"''${light_fg}\"" \
+            "theme[cpu_box]=\"''${magenta}\"" \
+            "theme[mem_box]=\"''${green}\"" \
+            "theme[net_box]=\"''${red}\"" \
+            "theme[proc_box]=\"''${accent}\"" \
+            "theme[div_line]=\"''${muted}\"" \
+            "theme[temp_start]=\"''${green}\"" \
+            "theme[temp_mid]=\"''${yellow}\"" \
+            "theme[temp_end]=\"''${red}\"" \
+            "theme[cpu_start]=\"''${cyan}\"" \
+            "theme[cpu_mid]=\"''${blue}\"" \
+            "theme[cpu_end]=\"''${magenta}\"" \
+            "theme[free_start]=\"''${magenta}\"" \
+            "theme[free_mid]=\"''${blue}\"" \
+            "theme[free_end]=\"''${cyan}\"" \
+            "theme[cached_start]=\"''${blue}\"" \
+            "theme[cached_mid]=\"''${cyan}\"" \
+            "theme[cached_end]=\"''${magenta}\"" \
+            "theme[available_start]=\"''${yellow}\"" \
+            "theme[available_mid]=\"''${red}\"" \
+            "theme[available_end]=\"''${red}\"" \
+            "theme[used_start]=\"''${green}\"" \
+            "theme[used_mid]=\"''${cyan}\"" \
+            "theme[used_end]=\"''${blue}\"" \
+            "theme[download_start]=\"''${yellow}\"" \
+            "theme[download_mid]=\"''${red}\"" \
+            "theme[download_end]=\"''${red}\"" \
+            "theme[upload_start]=\"''${green}\"" \
+            "theme[upload_mid]=\"''${cyan}\"" \
+            "theme[upload_end]=\"''${blue}\"" \
+            "theme[process_start]=\"''${cyan}\"" \
+            "theme[process_mid]=\"''${blue}\"" \
+            "theme[process_end]=\"''${magenta}\"" \
+            "theme[gradient_color_0]=\"''${bg}\"" \
+            "theme[gradient_color_1]=\"''${lighter_bg}\"" \
+            "theme[gradient_color_2]=\"''${selection}\"" \
+            "theme[gradient_color_3]=\"''${muted}\"" \
+            "theme[gradient_color_4]=\"''${dark_fg}\"" \
+            "theme[gradient_color_5]=\"''${fg}\"" \
+            "theme[gradient_color_6]=\"''${light_fg}\"" \
+            "theme[gradient_color_7]=\"''${bright_fg}\"" \
+            > "$current_dir/btop.theme"
+        fi
+      }
+
+      reload_nvim() {
+        runtime="''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+        lua='lua require("omarchy-theme").apply()'
+        if command -v nvim >/dev/null; then
+          shopt -s nullglob
+          for sock in "$runtime"/omarchy-nvim-*.sock "$runtime"/nvim.*.0 "$runtime"/nvim*.sock; do
+            nvim --server "$sock" --remote-send "<Cmd>''${lua}<CR>" >/dev/null 2>&1 || true
+          done
+          shopt -u nullglob
+        fi
+        # SIGUSR1 is the Omarchy-compatible fallback when no listen socket exists.
+        pkill -USR1 -x nvim >/dev/null 2>&1 || true
+      }
+
+      reload_btop() {
+        mkdir -p "$config_home/btop/themes"
+        if [ -f "$current_dir/btop.theme" ]; then
+          ln -nsf "$current_dir/btop.theme" "$config_home/btop/themes/current.theme"
+        fi
+        pkill -USR2 -x btop >/dev/null 2>&1 || true
       }
 
       apply_theme() {
@@ -523,8 +856,14 @@ let
           omarchy-restart-walker >/dev/null 2>&1 || true
         fi
 
+        reload_nvim
+        reload_btop
+
         # hyprlock has no reload IPC. It sources current/hyprlock.conf the next
         # time it starts. A lock already on screen keeps its old colors.
+
+        # Chromium: Omarchy writes /etc/chromium/policies/managed/color.json as
+        # root. We do not ship a sudoers helper; NixOS policies are declarative.
 
         apply_theme_wallpaper "$name" "$src"
 

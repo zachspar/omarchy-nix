@@ -9,7 +9,9 @@ let
 in
 {
   config = lib.mkIf (cfg.enable && cfg.apps.enable) {
-    programs.neovim.enable = true;
+    # Neovim enable + theme plugins live in neovim.nix so the apps pillar
+    # still owns the editor, and theme-set can retint it without a second
+    # programs.neovim.enable.
 
     services.cliphist.enable = true;
 
