@@ -6,7 +6,8 @@
 let
   cfg = config.programs.omarchy;
   terminal = lib.getExe cfg.shell.terminalPackage;
-  launcher = lib.getExe cfg.shell.launcherPackage;
+  # Wrapper ensures Elephant is up and applies Omarchy's Walker geometry.
+  launcher = "omarchy-launch-walker";
   lock = lib.getExe cfg.shell.lockPackage;
   notify = lib.getExe cfg.shell.notificationPackage;
   makoctl = lib.getExe' cfg.shell.notificationPackage "makoctl";
@@ -28,10 +29,14 @@ in
         "$fileManager" = files;
 
         exec-once = [
-          "${launcher} --gapplication-service"
+          # Walker + Elephant are systemd user units (see walker.nix).
           # mako has no Home Manager systemd unit; start it with the session
           # the way Omarchy does. hypridle is started by services.hypridle.
           "${notify}"
+        ];
+
+        layerrule = [
+          "noanim, walker"
         ];
 
         general = {
@@ -52,13 +57,16 @@ in
         bind = [
           "SUPER, Return, exec, $terminal"
           "SUPER, Space, exec, $launcher"
+          "SUPER CTRL, E, exec, $launcher -m symbols"
           "SUPER CTRL, L, exec, ${lock}"
           "SUPER, COMMA, exec, ${makoctl} dismiss"
           "SUPER SHIFT, COMMA, exec, ${makoctl} dismiss --all"
         ]
         ++ lib.optionals cfg.theme.enable [
-          "SUPER CTRL SHIFT, Space, exec, omarchy-theme-next"
-          "SUPER CTRL, Space, exec, omarchy-theme-bg-next"
+          # Omarchy: Super+Ctrl+Shift+Space opens the theme picker, not cycle.
+          # omarchy-theme-next remains the CLI for cycling.
+          "SUPER CTRL SHIFT, Space, exec, $launcher -m menus:omarchythemes --width 800 --minheight 400"
+          "SUPER CTRL, Space, exec, $launcher -m menus:omarchyBackgroundSelector --width 800 --minheight 400"
         ]
         ++ lib.optionals cfg.apps.enable [
           "SUPER, B, exec, $browser"

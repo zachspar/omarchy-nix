@@ -15,18 +15,8 @@ in
       xwayland.enable = true;
     };
 
-    # Walker 2.x talks to Elephant. Started here (not services.elephant) so
-    # the module evaluates on nixpkgs pins that lack that option.
-    # Omarchy's branded `omarchy-walker` providers are still a TODO.
-    systemd.user.services.omarchy-elephant = {
-      description = "Elephant application launcher backend (Walker)";
-      wantedBy = [ "graphical-session.target" ];
-      partOf = [ "graphical-session.target" ];
-      serviceConfig = {
-        ExecStart = "${lib.getExe pkgs.elephant}";
-        Restart = "on-failure";
-      };
-    };
+    # Walker + Elephant user units live in Home Manager (walker.nix). NixOS
+    # only installs the packages so the binaries exist on PATH.
 
     xdg.portal = {
       enable = true;
@@ -58,7 +48,9 @@ in
       cfg.shell.idlePackage
       cfg.shell.notificationPackage
       pkgs.elephant
+      pkgs.libqalculate
       pkgs.uwsm
+      (pkgs.callPackage ../../pkgs/omarchy-theme-tools { })
     ];
   };
 }

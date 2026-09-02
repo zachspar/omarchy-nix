@@ -51,9 +51,11 @@ in
 
       launcherPackage = mkPackageOption pkgs "walker" {
         extraDescription = ''
-          Upstream Walker from nixpkgs. Omarchy's branded `omarchy-walker`
-          overlay is not packaged here — do not vendor unpublished blobs.
-          Walker 2.x expects `services.elephant.enable`.
+          Upstream Walker from nixpkgs. Omarchy does not ship a separate
+          `omarchy-walker` binary — branding is config, GTK CSS, and Elephant
+          Lua menus (theme picker, wallpaper picker). Walker 2.x talks to
+          Elephant; this flake starts a user unit rather than requiring
+          `services.elephant`.
         '';
       };
 
@@ -91,7 +93,8 @@ in
       enable = mkPillarEnable ''
         Theme pillar: one command (`omarchy-theme-set`) and one keybind
         (`Super+Ctrl+Shift+Space`) that flip GTK, Hyprland, Ghostty, icons,
-        hyprlock, mako, Waybar, and wallpaper together.
+        hyprlock, mako, Waybar, Walker, and wallpaper together. The keybind
+        opens the Walker theme picker; `omarchy-theme-next` still cycles.
       '';
 
       name = mkOption {
@@ -105,8 +108,8 @@ in
           `lupine`, `matte-black`, `miasma`, `nord`, `osaka-jade`,
           `retro-82`, `ristretto`, `rose-pine`, `solitude`, `tokyo-night`,
           `vantablack`, `white`. Each flip retints GTK, Hyprland, Ghostty,
-          icons, hyprlock, mako, Waybar, and the wallpaper (swaybg).
-          Neovim, btop, Chromium, and Walker packs are a later milestone.
+          icons, hyprlock, mako, Waybar, Walker, and the wallpaper (swaybg).
+          Neovim, btop, and Chromium packs are a later milestone.
         '';
       };
     };

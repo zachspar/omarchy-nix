@@ -1,0 +1,2 @@
+# From basecamp/omarchy config/elephant/symbols.toml
+command = 'wl-copy && hyprctl dispatch sendshortcut "SHIFT,Insert,activewindow"'

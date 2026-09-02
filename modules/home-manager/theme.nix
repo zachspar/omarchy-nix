@@ -34,9 +34,9 @@ in
           color-scheme = if isLight then "prefer-light" else "prefer-dark";
         };
 
-        # Seed writable state so Hyprland/hyprlock/mako/Waybar can source a
-        # theme file before the first `omarchy-theme-set`, and so Ghostty's
-        # `theme = omarchy` resolves.
+        # Seed writable state so Hyprland/hyprlock/mako/Waybar/Walker can
+        # source a theme file before the first `omarchy-theme-set`, and so
+        # Ghostty's `theme = omarchy` resolves.
         home.activation.omarchyThemeSeed = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
           state="${currentTheme}"
           themes="${themeTools}/share/omarchy/themes/${cfg.theme.name}"
@@ -52,6 +52,7 @@ in
           seed "$themes/hyprlock.conf" "$state/hyprlock.conf"
           seed "$themes/mako.ini" "$state/mako.ini"
           seed "$themes/waybar.css" "$state/waybar.css"
+          seed "$themes/walker.css" "$state/walker.css"
           seed "$themes/ghostty" "${config.xdg.configHome}/ghostty/themes/omarchy"
         '';
 
@@ -90,8 +91,9 @@ in
           Install.WantedBy = [ "graphical-session.target" ];
         };
 
-        # TODO: Neovim, btop, Chromium, Walker theme files. hyprlock does
-        # not hot-reload an already-visible lock screen.
+        # TODO: Neovim, btop, Chromium theme files. hyprlock does
+        # not hot-reload an already-visible lock screen. Walker GTK CSS
+        # is rewritten via current/walker.css + omarchy-restart-walker.
       }
 
       (lib.mkIf cfg.shell.enable {

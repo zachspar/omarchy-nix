@@ -12,6 +12,7 @@ in
     ../shared/options.nix
     ./hyprland.nix
     ./shell.nix
+    ./walker.nix
     ./theme.nix
     ./terminal.nix
     ./apps.nix
