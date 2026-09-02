@@ -5,6 +5,7 @@
 }:
 let
   inherit (lib)
+    literalExpression
     mkEnableOption
     mkOption
     mkPackageOption
@@ -35,8 +36,91 @@ in
         Shell pillar: Hyprland + Walker + Ghostty, the "feels like Omarchy"
         baseline. Also enables Waybar (Omarchy's status bar; Walker is the
         launcher), the Elephant backend Walker 2.x needs, hyprlock + hypridle
-        (lock on idle), and mako (notifications).
+        (lock on idle), mako (notifications), and SDDM + Plymouth so first
+        login (and LUKS unlock) match Omarchy.
       '';
+
+      greeter = {
+        enable = mkOption {
+          type = types.bool;
+          default = true;
+          example = false;
+          description = ''
+            SDDM greeter with the Omarchy login theme (logo, lock, entry).
+            This is the post-boot / post-logout screen. LUKS unlock is
+            Plymouth (`programs.omarchy.shell.greeter.plymouth`), not SDDM.
+            Autologin stays off unless you set `greeter.autoLogin`.
+          '';
+        };
+
+        autoLogin = {
+          enable = mkOption {
+            type = types.bool;
+            default = false;
+            description = ''
+              Skip the SDDM password prompt and start the Hyprland/UWSM
+              session. Off by default — Omarchy-on-NixOS still asks at the
+              greeter. FDE unlock is a separate prompt (cryptsetup / Plymouth).
+            '';
+          };
+
+          user = mkOption {
+            type = types.nullOr types.str;
+            default = null;
+            example = "alice";
+            description = "User for SDDM autologin. Required when `autoLogin.enable` is true.";
+          };
+        };
+
+        compositor = mkOption {
+          type = types.enum [
+            "hyprland"
+            "weston"
+          ];
+          default = "hyprland";
+          description = ''
+            Wayland compositor that hosts the SDDM greeter. Omarchy uses
+            Hyprland (`start-hyprland` plus a tiny config). nixpkgs
+            first-class supports weston (and kwin) as the greeter compositor;
+            Hyprland is best-effort. Set `weston` if the greeter is black
+            or crashes.
+          '';
+        };
+
+        logo = mkOption {
+          type = types.nullOr types.path;
+          default = null;
+          example = literalExpression "./unlock.png";
+          description = ''
+            PNG used as the greeter and Plymouth logo. Defaults to the
+            official pack's `unlock.png` for `programs.omarchy.theme.name`
+            (fetched from basecamp/omarchy, MIT), then Omarchy's default
+            `logo.png`, then a generated wordmark stub.
+
+            Drop your own `unlock.png` and point this option at it. Changing
+            the logo or greeter palette requires a rebuild — `omarchy-theme-set`
+            cannot rewrite the store or the initrd.
+          '';
+        };
+
+        plymouth = {
+          enable = mkOption {
+            type = types.bool;
+            default = true;
+            example = false;
+            description = ''
+              Plymouth boot splash and (when the initrd hooks it) the LUKS
+              passphrase dialog. This is Omarchy's `unlock.png` path — not
+              SDDM. The theme is baked into the initrd, so a palette change
+              needs `nixos-rebuild`. nixos-unstable already uses systemd
+              initrd, which is the themed dialog path. Traditional
+              (non-systemd) initrd may still show the cryptsetup text
+              prompt; the module warns if you turn systemd initrd off
+              while a LUKS device is declared.
+            '';
+          };
+        };
+      };
 
       withUWSM = mkOption {
         type = types.bool;

@@ -14,7 +14,7 @@ All four are **on by default** once you set `programs.omarchy.enable = true`. Ea
 
 | Pillar | What “done” looks like | This stub |
 | --- | --- | --- |
-| **shell** | Hyprland + Walker + Ghostty feels like Omarchy at first login | Enables `programs.hyprland` (UWSM), Ghostty, Walker, Waybar, Elephant (Walker 2.x backend, including menus/clipboard/calc/files/symbols), **hyprlock + hypridle** (lock on idle), and **mako** (notifications). Home Manager writes the Hyprland/Ghostty/lock baseline, Walker config + GTK CSS, and keybinds. |
+| **shell** | Hyprland + Walker + Ghostty feels like Omarchy at first login | Enables `programs.hyprland` (UWSM), Ghostty, Walker, Waybar, Elephant (Walker 2.x backend, including menus/clipboard/calc/files/symbols), **hyprlock + hypridle** (lock on idle), **mako** (notifications), and **SDDM + Plymouth** (greeter / unlock art). Home Manager writes the Hyprland/Ghostty/lock baseline, Walker config + GTK CSS, and keybinds. |
 | **theme** | One command / keybind flips GTK + Hyprland + terminal + icons + lock + notifications + bar + launcher + Neovim + btop + wallpaper together | `omarchy-theme-set <name>`, `omarchy-theme-next`, Walker theme picker on `Super+Ctrl+Shift+Space`. All official Omarchy packs. Wallpaper via swaybg. |
 | **apps** | Browser, file manager, Neovim, screenshot + clipboard helpers | Chromium, Nautilus, Neovim, btop, grim/slurp/satty, wl-clipboard, cliphist. |
 | **storage** | LUKS2 + Btrfs `@` / `@home` + Snapper rollback | Documents and wires Snapper; optionally opens a LUKS device you already created. **Does not reformat disks. Does not treat an unencrypted ext4 root as equivalent.** |
@@ -127,6 +127,11 @@ Do not use `nix-env`. Put packages in `environment.systemPackages`, `home.packag
 
   # All four default to true. Turn one off if you must:
   # programs.omarchy.shell.enable = false;
+  # programs.omarchy.shell.greeter.autoLogin.enable = true;
+  # programs.omarchy.shell.greeter.autoLogin.user = "youruser";
+  # programs.omarchy.shell.greeter.compositor = "weston";
+  # programs.omarchy.shell.greeter.logo = ./unlock.png;
+  # programs.omarchy.shell.greeter.plymouth.enable = false;
   # programs.omarchy.theme.enable = false;
   # programs.omarchy.apps.enable = false;
   # programs.omarchy.storage.enable = false;
@@ -228,6 +233,49 @@ Idle (hypridle, seconds from idle — same numbers as Omarchy’s `shell.json`):
 
 `loginctl lock-session` / suspend also lock via hypridle’s `lock_cmd`. The NixOS module installs `security.pam.services.hyprlock` so unlock works. Standalone Home Manager users must set that PAM service on the host themselves.
 
+### Greeter and unlock art
+
+Omarchy’s first-login path is two screens, not one:
+
+| When | What Omarchy uses | This flake |
+| --- | --- | --- |
+| After the kernel, before `/` is mounted | Plymouth + `unlock.png` (LUKS passphrase) | `boot.plymouth` theme `omarchy` |
+| After the disk is open, and after logout | SDDM theme `omarchy` (logo, lock, entry) | `services.displayManager.sddm` |
+
+Both are on by default with the shell pillar (`programs.omarchy.shell.greeter`). Autologin is **off**. The session SDDM starts is `hyprland-uwsm` when `shell.withUWSM` is on (same UWSM wrap Omarchy’s `omarchy.desktop` uses).
+
+The greeter theme is fetched at package-build time from [basecamp/omarchy](https://github.com/basecamp/omarchy) (MIT, David Heinemeier Hansson): `default/sddm`, `default/plymouth`, and each pack’s `unlock.png`. We do not check the PNGs into this repo. Colors follow the **declared** `programs.omarchy.theme.name` (or tokyo-night if the theme pillar is off). `omarchy-theme-set` cannot retint SDDM or Plymouth — those files live in the Nix store, and Plymouth is copied into the initrd.
+
+Drop your own unlock art:
+
+```nix
+{
+  programs.omarchy.shell.greeter.logo = ./unlock.png;
+}
+```
+
+If a pack has no `unlock.png` and you do not set `logo`, the package uses Omarchy’s default `logo.png`, then a generated wordmark stub so the screen still looks intentional.
+
+The greeter compositor defaults to Hyprland with Omarchy’s tiny `/usr/share/sddm/hyprland.conf`. nixpkgs first-class supports weston (and kwin) as the SDDM Wayland compositor; Hyprland is best-effort. If the greeter is black or crashes:
+
+```nix
+{
+  programs.omarchy.shell.greeter.compositor = "weston";
+}
+```
+
+#### LUKS unlock theming (honest limits)
+
+`unlock.png` is a **Plymouth** asset, not an SDDM one. NixOS will show that themed passphrase dialog only when Plymouth is in the initrd and the initrd actually hands the prompt to it.
+
+- Current nixos-unstable already enables `boot.initrd.systemd.enable`, which is the systemd-ask-password-plymouth path. If you turn systemd initrd off, traditional initrd may still print the cryptsetup text prompt before Plymouth starts; the module warns when `storage.luks.device` is set in that case.
+- A theme or logo change needs `nixos-rebuild` (initrd rebuild). There is no `omarchy-plymouth-set` equivalent that mutates `/usr/share` at runtime.
+- TPM / FIDO2 unlock (`systemd-cryptenroll`) skips the visual prompt entirely.
+- Early KMS is required for a real splash; a black or late splash is usually a GPU/modeset problem, not a missing PNG.
+- Turning `programs.omarchy.shell.greeter.plymouth.enable` off leaves you with the stock cryptsetup prompt. That is not an Omarchy-equivalent unlock screen.
+
+SDDM never sees the disk passphrase. Do not expect the greeter to replace FDE unlock.
+
 ## Storage (not optional for parity)
 
 Omarchy’s installer encrypts the root disk and lays out Btrfs subvolumes so Snapper (and the bootloader) can roll back a bad update without taking `/home` with it. **That is the product.** An unencrypted ext4 (or xfs, or a single Btrfs subvolume with no Snapper) is a different machine.
@@ -282,6 +330,8 @@ NixOS rollbacks via `nixos-rebuild` / generation boot entries are complementary,
 
 Limine + `limine-snapper-sync` (what Omarchy’s ISO uses) is **not** wired yet. systemd-boot + NixOS generations work today; boot-menu snapshot boots are a roadmap item.
 
+Unlock *art* for the LUKS prompt is Plymouth (`programs.omarchy.shell.greeter.plymouth`), not this storage module. See [Greeter and unlock art](#greeter-and-unlock-art).
+
 ## Parity roadmap
 
 Ordered the way the pillars were stubbed.
@@ -295,7 +345,9 @@ Ordered the way the pillars were stubbed.
    - [x] mako notifications
    - [x] Walker config, GTK CSS, and Elephant providers (clipboard, calc, files, symbols, menus)
    - [ ] hyprsunset / swayosd defaults
-   - [ ] SDDM (or equivalent) session + unlock art
+   - [x] SDDM greeter + Hyprland/UWSM session (`programs.omarchy.shell.greeter`; autologin off)
+   - [x] Plymouth unlock art (`unlock.png` from official packs; initrd rebuild; systemd initrd recommended)
+   - [ ] Live greeter / Plymouth retint from `omarchy-theme-set` (store + initrd are immutable)
    - [ ] Omarchy screensaver (`omarchy-launch-screensaver`) and idle-inhibit toggle
    - [ ] Omarchy 4 native shell menu (Walker remains the launcher on this flake)
 
@@ -322,7 +374,7 @@ Ordered the way the pillars were stubbed.
    - [x] Optional `storage.luks.device` wiring
    - [ ] disko snippet that creates `@` / `@home` (layout names stay with disko, not unused module options)
    - [ ] Limine + snapper-sync boot-menu rollback
-   - [ ] Initrd unlock theme (`unlock.png`)
+   - [x] Initrd unlock theme (`unlock.png` via Plymouth; see greeter limits above)
 
 ## Outputs
 
@@ -331,7 +383,8 @@ Ordered the way the pillars were stubbed.
 | `nixosModules.default` / `nixosModules.omarchy` | `programs.omarchy` |
 | `homeManagerModules.default` / `homeManagerModules.omarchy` | User Hyprland / Ghostty / theme stubs |
 | `packages.<system>.omarchy-theme-tools` | Theme CLI + Walker launch/restart + wallpaper helper + screenshot helper + official palettes |
-| `overlays.default` | Exposes `omarchy-theme-tools` |
+| `packages.<system>.omarchy-greeter` | SDDM theme + Plymouth unlock theme (official `unlock.png`, recolored chrome) |
+| `overlays.default` | Exposes `omarchy-theme-tools` and `omarchy-greeter` |
 | `templates.minimal` | `nix flake new -t github:zachspar/omarchy-nix#minimal` |
 | `formatter` | `nixfmt-rfc-style` |
 

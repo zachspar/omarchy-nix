@@ -24,6 +24,7 @@ in
     # chromium.theme (it is generated from a template); applying it needs
     # root write to /etc/chromium/policies/managed, which we are not adding.
     # Neovim and btop retint from omarchy-theme-set (Home Manager neovim.lua
-    # loader + btop current.theme symlink).
+    # loader + btop current.theme symlink). SDDM / Plymouth follow the
+    # declared theme.name at rebuild time (see programs.omarchy.shell.greeter).
   };
 }
