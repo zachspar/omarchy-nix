@@ -16,8 +16,8 @@ in
     programs.hyprlock = {
       enable = true;
       package = cfg.shell.lockPackage;
-      # Functional locker only. Theme-pack wallpaper / colors are a later
-      # milestone — do not pretend palettes retint hyprlock yet.
+      # Layout lives here. Palette tokens ($color, $inner_color, …) come from
+      # ~/.local/state/omarchy/current/hyprlock.conf when the theme pillar is on.
       settings = {
         general = {
           hide_cursor = true;
@@ -28,22 +28,30 @@ in
             monitor = "";
             path = "screenshot";
             blur_passes = 3;
-            color = "rgb(26, 27, 38)";
+            color = if cfg.theme.enable then "$color" else "rgb(26, 27, 38)";
           }
         ];
         input-field = [
-          {
-            monitor = "";
-            size = "650, 100";
-            position = "0, 0";
-            halign = "center";
-            valign = "center";
-            font_family = "JetBrainsMono Nerd Font";
-            placeholder_text = "Enter Password";
-            rounding = 0;
-            outline_thickness = 4;
-            fade_on_empty = false;
-          }
+          (
+            {
+              monitor = "";
+              size = "650, 100";
+              position = "0, 0";
+              halign = "center";
+              valign = "center";
+              font_family = "JetBrainsMono Nerd Font";
+              placeholder_text = "Enter Password";
+              rounding = 0;
+              outline_thickness = 4;
+              fade_on_empty = false;
+            }
+            // lib.optionalAttrs cfg.theme.enable {
+              inner_color = "$inner_color";
+              outer_color = "$outer_color";
+              font_color = "$font_color";
+              check_color = "$check_color";
+            }
+          )
         ];
       };
     };
@@ -75,9 +83,10 @@ in
       };
     };
 
-    # Structural Omarchy mako defaults (anchor, timeout, size). Colors wait
-    # for theme packs. dbus.packages registers the notification daemon;
-    # Hyprland exec-once starts it at login (see hyprland.nix).
+    # Structural Omarchy mako defaults (anchor, timeout, size). Colors come
+    # from the theme pillar (`include` of current/mako.ini). dbus.packages
+    # registers the notification daemon; Hyprland exec-once starts it at
+    # login (see hyprland.nix).
     services.mako = {
       enable = true;
       package = cfg.shell.notificationPackage;

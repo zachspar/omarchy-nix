@@ -1,6 +1,7 @@
 # Minimal built-in palettes for the theme stub.
 # Colors match the public Omarchy theme `colors.toml` values; we do not vendor
-# Omarchy's CSS, wallpapers, or app-specific theme packs.
+# Omarchy's CSS, wallpapers, or app-specific theme packs. The switcher renders
+# hyprlock / mako / Waybar snippets from these keys.
 {
   tokyo-night = {
     mode = "dark";

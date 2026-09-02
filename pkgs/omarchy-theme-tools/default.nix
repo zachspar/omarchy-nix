@@ -13,11 +13,21 @@
   slurp,
   satty,
   wl-clipboard,
+  procps,
 }:
 let
   palettes = import ../../modules/shared/palettes.nix;
 
   hex = value: if lib.hasPrefix "#" value then value else "#${value}";
+
+  # "1a1b26" / "#1a1b26" -> "26, 27, 38" for hyprlock rgba().
+  hexToRgb =
+    value:
+    let
+      h = lib.toLower (lib.removePrefix "#" value);
+      byte = offset: lib.fromHexString (builtins.substring offset 2 h);
+    in
+    "${toString (byte 0)}, ${toString (byte 2)}, ${toString (byte 4)}";
 
   render =
     name: p:
@@ -80,6 +90,24 @@ let
         gtk-theme=${p.gtkTheme}
         icon-theme=${p.iconTheme}
       '';
+      # Color tokens only — Home Manager owns lock layout and sources this file.
+      hyprlock = ''
+        $color = rgba(${hexToRgb p.background}, 1.0)
+        $inner_color = rgba(${hexToRgb p.background}, 0.8)
+        $outer_color = rgba(${hexToRgb p.foreground}, 1.0)
+        $font_color = rgba(${hexToRgb p.foreground}, 1.0)
+        $check_color = rgba(${hexToRgb p.accent}, 1.0)
+      '';
+      # Color keys only — mako includes this after the structural HM config.
+      mako = ''
+        text-color=${hex p.foreground}
+        border-color=${hex p.accent}
+        background-color=${hex p.background}
+      '';
+      waybar = ''
+        @define-color foreground ${hex p.foreground};
+        @define-color background ${hex p.background};
+      '';
     in
     {
       inherit name;
@@ -89,6 +117,9 @@ let
       ghostty = writeText "${name}-ghostty" ghostty;
       gtk = writeText "${name}-gtk.conf" gtk;
       icons = writeText "${name}-icons.theme" "${p.iconTheme}\n";
+      hyprlock = writeText "${name}-hyprlock.conf" hyprlock;
+      mako = writeText "${name}-mako.ini" mako;
+      waybar = writeText "${name}-waybar.css" waybar;
     };
 
   rendered = lib.mapAttrs render palettes;
@@ -101,6 +132,9 @@ let
       cp ${t.ghostty} "$out/share/omarchy/themes/${t.name}/ghostty"
       cp ${t.gtk} "$out/share/omarchy/themes/${t.name}/gtk.conf"
       cp ${t.icons} "$out/share/omarchy/themes/${t.name}/icons.theme"
+      cp ${t.hyprlock} "$out/share/omarchy/themes/${t.name}/hyprlock.conf"
+      cp ${t.mako} "$out/share/omarchy/themes/${t.name}/mako.ini"
+      cp ${t.waybar} "$out/share/omarchy/themes/${t.name}/waybar.css"
       ${lib.optionalString (t.mode == "light") ''
         : > "$out/share/omarchy/themes/${t.name}/light.mode"
       ''}
@@ -116,6 +150,7 @@ let
       findutils
       gnused
       glib
+      procps
     ];
     text = ''
       export XDG_DATA_DIRS="${schemas}:''${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
@@ -154,6 +189,66 @@ let
         exit 1
       }
 
+      toml_color() {
+        key="$1"
+        file="$2"
+        sed -n "s/^''${key}[[:space:]]*=[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p" "$file" | head -n1
+      }
+
+      hex_to_rgb() {
+        hex="''${1#\#}"
+        printf '%d, %d, %d' "0x''${hex:0:2}" "0x''${hex:2:2}" "0x''${hex:4:2}"
+      }
+
+      # Built-in palettes ship hyprlock/mako/waybar snippets. User themes that
+      # only drop colors.toml get the same files generated so one command still
+      # retints lock, notifications, and the bar.
+      ensure_surface_snippets() {
+        colors="$current_dir/colors.toml"
+        if [ ! -f "$colors" ]; then
+          return
+        fi
+
+        if [ ! -f "$current_dir/mako.ini" ] && [ -f "$current_dir/mako" ]; then
+          cp "$current_dir/mako" "$current_dir/mako.ini"
+        fi
+
+        bg="$(toml_color background "$colors")"
+        fg="$(toml_color foreground "$colors")"
+        accent="$(toml_color accent "$colors")"
+        if [ -z "$bg" ] || [ -z "$fg" ] || [ -z "$accent" ]; then
+          return
+        fi
+
+        if [ ! -f "$current_dir/hyprlock.conf" ]; then
+          bg_rgb="$(hex_to_rgb "$bg")"
+          fg_rgb="$(hex_to_rgb "$fg")"
+          accent_rgb="$(hex_to_rgb "$accent")"
+          printf '%s\n' \
+            "\$color = rgba(''${bg_rgb}, 1.0)" \
+            "\$inner_color = rgba(''${bg_rgb}, 0.8)" \
+            "\$outer_color = rgba(''${fg_rgb}, 1.0)" \
+            "\$font_color = rgba(''${fg_rgb}, 1.0)" \
+            "\$check_color = rgba(''${accent_rgb}, 1.0)" \
+            > "$current_dir/hyprlock.conf"
+        fi
+
+        if [ ! -f "$current_dir/mako.ini" ]; then
+          printf '%s\n' \
+            "text-color=''${fg}" \
+            "border-color=''${accent}" \
+            "background-color=''${bg}" \
+            > "$current_dir/mako.ini"
+        fi
+
+        if [ ! -f "$current_dir/waybar.css" ]; then
+          printf '%s\n' \
+            "@define-color foreground ''${fg};" \
+            "@define-color background ''${bg};" \
+            > "$current_dir/waybar.css"
+        fi
+      }
+
       apply_theme() {
         name="$1"
         src="$(resolve_theme "$name")"
@@ -161,9 +256,14 @@ let
 
         staging="$(mktemp -d)"
         cp -a "$src/." "$staging/"
+        # Store themes are 555/444; make the staging copy writable so we can
+        # record theme.name and generate missing lock/mako/waybar snippets.
+        chmod -R u+w "$staging"
         printf '%s\n' "$name" > "$staging/theme.name"
         rm -rf "$current_dir"
         mv "$staging" "$current_dir"
+
+        ensure_surface_snippets
 
         gtk_theme="Adwaita-dark"
         icon_theme="Yaru-blue"
@@ -202,6 +302,20 @@ let
         if [ -n "''${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && command -v hyprctl >/dev/null; then
           hyprctl reload >/dev/null 2>&1 || true
         fi
+
+        # mako include= picks up current/mako.ini; reload in place (no restart).
+        if command -v makoctl >/dev/null; then
+          makoctl reload >/dev/null 2>&1 || true
+        fi
+
+        # SIGUSR2 re-parses Waybar CSS, including the @import of waybar.css.
+        # Full restart is the fallback if the bar ignores imported-file changes.
+        if command -v pkill >/dev/null; then
+          pkill -USR2 -x waybar >/dev/null 2>&1 || true
+        fi
+
+        # hyprlock has no reload IPC. It sources current/hyprlock.conf the next
+        # time it starts. A lock already on screen keeps its old colors.
 
         echo "omarchy: theme set to $name"
       }
