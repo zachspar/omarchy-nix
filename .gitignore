@@ -1,0 +1,21 @@
+# Nix build results
+result
+result-*
+
+# direnv
+.direnv/
+.envrc
+
+# Editor / OS noise
+*~
+*.swp
+*.swo
+.idea/
+.vscode/
+*.code-workspace
+.DS_Store
+Thumbs.db
+
+# Local VM / test artifacts
+*.qcow2
+/tmp/
