@@ -179,7 +179,8 @@ in
         (`Super+Ctrl+Shift+Space`) that flip GTK, Hyprland, Ghostty, icons,
         hyprlock, mako, Waybar, Walker, Neovim, btop, and wallpaper together.
         The keybind opens the Walker theme picker; `omarchy-theme-next` still
-        cycles.
+        cycles. Chromium chrome follows `theme.name` via a NixOS managed
+        policy and needs a rebuild — `omarchy-theme-set` cannot rewrite `/etc`.
       '';
 
       name = mkOption {
@@ -194,7 +195,10 @@ in
           `retro-82`, `ristretto`, `rose-pine`, `solitude`, `tokyo-night`,
           `vantablack`, `white`. Each flip retints GTK, Hyprland, Ghostty,
           icons, hyprlock, mako, Waybar, Walker, Neovim, btop, and the
-          wallpaper (swaybg). Chromium managed-policy theming is not wired.
+          wallpaper (swaybg). Chromium chrome follows this name via
+          `programs.chromium.extraOpts` (BrowserThemeColor from the pack's
+          `colors.toml` background). That policy is generation-bound; live
+          `omarchy-theme-set` cannot rewrite `/etc`.
         '';
       };
     };

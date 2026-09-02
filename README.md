@@ -15,7 +15,7 @@ All four are **on by default** once you set `programs.omarchy.enable = true`. Ea
 | Pillar | What “done” looks like | This stub |
 | --- | --- | --- |
 | **shell** | Hyprland + Walker + Ghostty feels like Omarchy at first login | Enables `programs.hyprland` (UWSM), Ghostty, Walker, Waybar, Elephant (Walker 2.x backend, including menus/clipboard/calc/files/symbols), **hyprlock + hypridle** (lock on idle), **mako** (notifications), and **SDDM + Plymouth** (greeter / unlock art). Home Manager writes the Hyprland/Ghostty/lock baseline, Walker config + GTK CSS, and keybinds. |
-| **theme** | One command / keybind flips GTK + Hyprland + terminal + icons + lock + notifications + bar + launcher + Neovim + btop + wallpaper together | `omarchy-theme-set <name>`, `omarchy-theme-next`, Walker theme picker on `Super+Ctrl+Shift+Space`. All official Omarchy packs. Wallpaper via swaybg. |
+| **theme** | One command / keybind flips GTK + Hyprland + terminal + icons + lock + notifications + bar + launcher + Neovim + btop + wallpaper together; Chromium chrome follows `theme.name` | `omarchy-theme-set <name>`, `omarchy-theme-next`, Walker theme picker on `Super+Ctrl+Shift+Space`. All official Omarchy packs. Wallpaper via swaybg. Chromium chrome is generation-bound (managed policy). |
 | **apps** | Browser, file manager, Neovim, screenshot + clipboard helpers | Chromium, Nautilus, Neovim, btop, grim/slurp/satty, wl-clipboard, cliphist. |
 | **storage** | LUKS2 + Btrfs `@` / `@home` + Snapper rollback | Documents and wires Snapper; optionally opens a LUKS device you already created. **Does not reformat disks. Does not treat an unencrypted ext4 root as equivalent.** |
 
@@ -158,7 +158,7 @@ Under Home Manager-as-a-NixOS-module, the HM module reads `osConfig.programs.oma
 | Next wallpaper | `omarchy-theme-bg-next` |
 | Set wallpaper | `omarchy-theme-bg-set ~/Pictures/wall.webp` |
 
-Each flip updates GTK (`gsettings` color-scheme + theme), icon theme, Hyprland border colors, the Ghostty `omarchy` theme file, hyprlock color tokens, mako notification colors, Waybar CSS (`@foreground` / `@background`), Walker GTK CSS (`@selected-text` / `@text` / `@base` / `@border`), Neovim (official `neovim.lua` colorscheme, or palette highlight groups), btop (`themes/current.theme`), and the desktop wallpaper (swaybg).
+Each flip updates GTK (`gsettings` color-scheme + theme), icon theme, Hyprland border colors, the Ghostty `omarchy` theme file, hyprlock color tokens, mako notification colors, Waybar CSS (`@foreground` / `@background`), Walker GTK CSS (`@selected-text` / `@text` / `@base` / `@border`), Neovim (official `neovim.lua` colorscheme, or palette highlight groups), btop (`themes/current.theme`), and the desktop wallpaper (swaybg). Chromium chrome follows `programs.omarchy.theme.name` via a managed policy and does **not** live-retint — see [Chromium chrome](#chromium-chrome).
 
 Official packs, colors from basecamp/omarchy `themes/*/colors.toml`:
 
@@ -166,7 +166,7 @@ Official packs, colors from basecamp/omarchy `themes/*/colors.toml`:
 
 Light packs: `catppuccin-latte`, `flexoki-light`, `lupine`, `rose-pine`, `white`.
 
-Drop extra theme directories in `~/.config/omarchy/themes/<name>/` (`colors.toml`, `hyprland.conf`, `ghostty`, `icons.theme`, `hyprlock.conf`, `mako.ini`, `waybar.css`, `walker.css`, `neovim.lua`, `btop.theme`, optional `light.mode`, optional `backgrounds/`). User themes win over the packaged packs. A theme that only ships `colors.toml` still gets lock / mako / Waybar / Walker / Neovim / btop snippets generated at apply time.
+Drop extra theme directories in `~/.config/omarchy/themes/<name>/` (`colors.toml`, `hyprland.conf`, `ghostty`, `icons.theme`, `hyprlock.conf`, `mako.ini`, `waybar.css`, `walker.css`, `neovim.lua`, `btop.theme`, `chromium.theme`, optional `light.mode`, optional `backgrounds/`). User themes win over the packaged packs. A theme that only ships `colors.toml` still gets lock / mako / Waybar / Walker / Neovim / btop / `chromium.theme` snippets generated at apply time. User `chromium.theme` does not rewrite `/etc` — Chromium chrome stays on the generation-declared `theme.name`.
 
 ### Wallpaper
 
@@ -193,7 +193,41 @@ Packs with no `neovim.lua`, or whose plugin is not in nixpkgs (`hackerman`, `lum
 
 btop uses Omarchy’s `color_theme = "current"` convention: `omarchy-theme-set` points `~/.config/btop/themes/current.theme` at `~/.local/state/omarchy/current/btop.theme`. Four packs ship a hand-written `btop.theme` (`last-horizon`, `lumon`, `retro-82`, `solitude`); the rest are filled from Omarchy’s `btop.theme.tpl` and `colors.toml`. A running btop reloads on `SIGUSR2`; if none is running, the next launch reads `current`.
 
-Chromium managed-policy theming is **not** wired. Omarchy writes `/etc/chromium/policies/managed/color.json` as root (`omarchy-theme-set-browser`). Official packs do not ship `chromium.theme` (it is generated from a template), and this flake does not add a sudoers helper. NixOS browser policies stay declarative (`programs.chromium.extraOpts`) for a later pass.
+### Chromium chrome
+
+Omarchy’s `omarchy-theme-set-browser` writes `/etc/chromium/policies/managed/color.json` as root, then asks a running browser to `chromium --refresh-platform-policy --no-startup-window`. Official packs do not ship `chromium.theme`; it is generated from `default/themed/chromium.theme.tpl` (`{{ background_rgb }}`) using that pack’s `colors.toml` `background`. The JSON is:
+
+```json
+{"BrowserThemeColor": "#1a1b26", "BrowserColorScheme": "device"}
+```
+
+(`#1a1b26` is tokyo-night’s background. Missing `chromium.theme` falls back to Omarchy’s `#1c2027`.)
+
+NixOS owns `/etc`. This flake does **not** world-write the managed-policy directory and does **not** ship a sudoers helper. With the theme and apps pillars on, the NixOS module sets `programs.chromium.enable` and `programs.chromium.extraOpts` from `programs.omarchy.theme.name`. NixOS writes that JSON to `/etc/chromium/policies/managed/extra.json` (and the Chrome / Brave siblings). Chromium reads every JSON in the managed dir; extra.json is the NixOS name for Omarchy’s color.json.
+
+```nix
+{
+  programs.omarchy.enable = true;
+  programs.omarchy.theme.name = "tokyo-night";
+  # Rebuild. Chromium chrome is now #1a1b26.
+}
+```
+
+`omarchy-theme-set` still writes `~/.local/state/omarchy/current/chromium.theme` (template fill, or a user-supplied file) and calls `--refresh-platform-policy` if Chromium is running. That refresh re-reads `/etc`. It cannot change the chrome color until you rebuild with a new `theme.name`.
+
+After `nixos-rebuild switch`, restart Chromium or run:
+
+```bash
+chromium --refresh-platform-policy --no-startup-window
+```
+
+#### Honest limits
+
+- Live theme cycle / Walker picker retints GTK, Hyprland, Ghostty, lock, mako, Waybar, Walker, Neovim, btop, and wallpaper. Chromium chrome stays on the last rebuilt `theme.name`.
+- `BrowserThemeColor` is the Linux-supported key (toolbar / frame seed from the pack background). `BrowserColorScheme = "device"` is copied from Omarchy’s JSON; on Linux it may show as unknown in `chrome://policy` and is ignored per-key. We do not invent a Linux `BrowserColorScheme` integer.
+- A custom `theme.name` that is not an official pack uses Omarchy’s fallback `#1c2027` until you override `programs.chromium.extraOpts.BrowserThemeColor` yourself.
+- Standalone Home Manager cannot install managed policies (no `/etc`). The user module still seeds `chromium.theme` so the file exists; the browser will not read it.
+- There is no user-level Chromium managed-policy directory that stock Chromium honors. Writing `~/.config/chromium/policies/` does not theme the chrome. Preferences-file hacking is not Omarchy’s path and is not wired here.
 
 ### Shell keybinds (Home Manager)
 
@@ -360,7 +394,7 @@ Ordered the way the pillars were stubbed.
    - [x] Theme preview picker (Elephant `menus:omarchythemes`) and wallpaper picker (`menus:omarchyBackgroundSelector`)
    - [x] Neovim retint from official `neovim.lua` (nixpkgs colorscheme plugins + `colors.toml` fallback)
    - [x] btop retint (`current.theme` symlink, official `btop.theme` where the pack ships one)
-   - [ ] Chromium managed-policy retint (`/etc/chromium/policies/managed`; needs a privileged helper we do not ship)
+   - [x] Chromium managed-policy theming (`programs.chromium.extraOpts` from `theme.name`; rebuild to retint; no sudoers helper)
 
 3. **Apps**
    - [x] Chromium, Nautilus, Neovim, btop

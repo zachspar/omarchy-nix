@@ -56,6 +56,7 @@ in
           seed "$themes/neovim.lua" "$state/neovim.lua"
           seed "$themes/neovim-palette.lua" "$state/neovim-palette.lua"
           seed "$themes/btop.theme" "$state/btop.theme"
+          seed "$themes/chromium.theme" "$state/chromium.theme"
           seed "$themes/ghostty" "${config.xdg.configHome}/ghostty/themes/omarchy"
           if [ -f "$state/btop.theme" ]; then
             ln -nsf "$state/btop.theme" "${config.xdg.configHome}/btop/themes/current.theme"
@@ -66,7 +67,7 @@ in
         # matches programs.omarchy.theme.name before any keybind is pressed.
         systemd.user.services.omarchy-theme-apply = {
           Unit = {
-            Description = "Apply Omarchy theme (GTK + Hyprland + Ghostty + lock/notify/bar + nvim/btop + icons + wallpaper)";
+            Description = "Apply Omarchy theme (GTK + Hyprland + Ghostty + lock/notify/bar + nvim/btop + icons + wallpaper; Chromium policy refresh)";
             After = [ "graphical-session.target" ];
             PartOf = [ "graphical-session.target" ];
           };
@@ -109,12 +110,11 @@ in
           };
         };
 
-        # Chromium policy theming (omarchy-theme-set-browser writing
-        # /etc/chromium/policies/managed/color.json as root) is not wired:
-        # NixOS wants declarative programs.chromium.extraOpts, and we are
-        # not adding a sudoers helper. chromium.theme is an Omarchy
-        # template, not a file official packs ship. hyprlock does not
-        # hot-reload an already-visible lock screen.
+        # Chromium chrome is a NixOS managed policy (programs.chromium.extraOpts
+        # from programs.omarchy.theme.name). omarchy-theme-set writes
+        # chromium.theme into current/ and calls --refresh-platform-policy;
+        # that cannot rewrite /etc. Standalone Home Manager has no /etc.
+        # hyprlock does not hot-reload an already-visible lock screen.
       }
 
       (lib.mkIf cfg.shell.enable {
