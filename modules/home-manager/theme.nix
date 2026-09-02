@@ -34,7 +34,7 @@ in
           color-scheme = if isLight then "prefer-light" else "prefer-dark";
         };
 
-        # Seed writable state so Hyprland/hyprlock/mako/Waybar/Walker/Neovim/btop
+        # Seed writable state so Hyprland/hyprlock/mako/Waybar/Walker/swayosd/Neovim/btop
         # can source a theme file before the first `omarchy-theme-set`, and so
         # Ghostty's `theme = omarchy` resolves.
         home.activation.omarchyThemeSeed = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
@@ -53,6 +53,7 @@ in
           seed "$themes/mako.ini" "$state/mako.ini"
           seed "$themes/waybar.css" "$state/waybar.css"
           seed "$themes/walker.css" "$state/walker.css"
+          seed "$themes/swayosd.css" "$state/swayosd.css"
           seed "$themes/neovim.lua" "$state/neovim.lua"
           seed "$themes/neovim-palette.lua" "$state/neovim-palette.lua"
           seed "$themes/btop.theme" "$state/btop.theme"
@@ -67,7 +68,7 @@ in
         # matches programs.omarchy.theme.name before any keybind is pressed.
         systemd.user.services.omarchy-theme-apply = {
           Unit = {
-            Description = "Apply Omarchy theme (GTK + Hyprland + Ghostty + lock/notify/bar + nvim/btop + icons + wallpaper; Chromium policy refresh)";
+            Description = "Apply Omarchy theme (GTK + Hyprland + Ghostty + lock/notify/bar/osd + nvim/btop + icons + wallpaper; Chromium policy refresh)";
             After = [ "graphical-session.target" ];
             PartOf = [ "graphical-session.target" ];
           };

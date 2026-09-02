@@ -10,9 +10,104 @@ let
   hyprctl = lib.getExe' config.wayland.windowManager.hyprland.package "hyprctl";
   pidof = lib.getExe' pkgs.procps "pidof";
   loginctl = lib.getExe' pkgs.systemd "loginctl";
+  currentTheme = "${config.xdg.stateHome}/omarchy/current";
+  swayosdStyle = "${config.xdg.configHome}/swayosd/style.css";
+  # Omarchy default/themed/swayosd.css.tpl tokens. Used when the theme pillar
+  # is off or current/swayosd.css has not been seeded yet (tokyo-night).
+  fallbackSwayosdCss = ''
+    @define-color background-color #1a1b26;
+    @define-color border-color #c0caf5;
+    @define-color label #c0caf5;
+    @define-color image #c0caf5;
+    @define-color progress #7aa2f7;
+  '';
+  structuralSwayosdCss = ''
+    window {
+      border-radius: 0;
+      opacity: 0.97;
+      border: 2px solid @border-color;
+
+      background-color: @background-color;
+    }
+
+    label {
+      font-family: 'JetBrainsMono Nerd Font';
+      font-size: 11pt;
+
+      color: @label;
+    }
+
+    image {
+      color: @image;
+    }
+
+    progressbar {
+      border-radius: 0;
+    }
+
+    progress {
+      background-color: @progress;
+    }
+  '';
+  swayosdCss =
+    if cfg.theme.enable then
+      ''
+        @import url("file://${currentTheme}/swayosd.css");
+
+        ${structuralSwayosdCss}
+      ''
+    else
+      ''
+        ${fallbackSwayosdCss}
+
+        ${structuralSwayosdCss}
+      '';
 in
 {
   config = lib.mkIf (cfg.enable && cfg.shell.enable) {
+    home.packages = [
+      cfg.shell.nightlightPackage
+      cfg.shell.osdPackage
+      pkgs.playerctl
+      pkgs.jq
+      pkgs.libnotify
+    ];
+
+    # Identity profile so hyprsunset does not tint on login. Omarchy's
+    # ~/.config/hypr/hyprsunset.conf is the same 07:00 identity block; the
+    # toggle starts the daemon if needed. We start it via systemd so
+    # Super+Ctrl+N has IPC without uwsm-app, and so it is not an exec-once
+    # that would race hypridle after lock/suspend.
+    services.hyprsunset = {
+      enable = true;
+      package = cfg.shell.nightlightPackage;
+      settings = {
+        profile = [
+          {
+            time = "07:00";
+            identity = true;
+          }
+        ];
+      };
+    };
+
+    # User unit, not Hyprland autostart. Omarchy moved swayosd-server off
+    # exec-once for the same reason: the process died after lock/suspend and
+    # media binds then failed with ServiceUnknown.
+    services.swayosd = {
+      enable = true;
+      package = cfg.shell.osdPackage;
+    };
+
+    xdg.configFile."swayosd/config.toml".text = ''
+      [server]
+      show_percentage = true
+      max_volume = 100
+      style = "${swayosdStyle}"
+    '';
+
+    xdg.configFile."swayosd/style.css".text = swayosdCss;
+
     programs.hyprlock = {
       enable = true;
       package = cfg.shell.lockPackage;

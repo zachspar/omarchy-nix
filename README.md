@@ -14,7 +14,7 @@ All four are **on by default** once you set `programs.omarchy.enable = true`. Ea
 
 | Pillar | What “done” looks like | This stub |
 | --- | --- | --- |
-| **shell** | Hyprland + Walker + Ghostty feels like Omarchy at first login | Enables `programs.hyprland` (UWSM), Ghostty, Walker, Waybar, Elephant (Walker 2.x backend, including menus/clipboard/calc/files/symbols), **hyprlock + hypridle** (lock on idle), **mako** (notifications), and **SDDM + Plymouth** (greeter / unlock art). Home Manager writes the Hyprland/Ghostty/lock baseline, Walker config + GTK CSS, and keybinds. |
+| **shell** | Hyprland + Walker + Ghostty feels like Omarchy at first login | Enables `programs.hyprland` (UWSM), Ghostty, Walker, Waybar, Elephant (Walker 2.x backend, including menus/clipboard/calc/files/symbols), **hyprlock + hypridle** (lock on idle), **mako** (notifications), **hyprsunset** (night light) + **swayosd** (volume/brightness/caps OSD), and **SDDM + Plymouth** (greeter / unlock art). Home Manager writes the Hyprland/Ghostty/lock/OSD baseline, Walker config + GTK CSS, and keybinds. |
 | **theme** | One command / keybind flips GTK + Hyprland + terminal + icons + lock + notifications + bar + launcher + Neovim + btop + wallpaper together; Chromium chrome follows `theme.name` | `omarchy-theme-set <name>`, `omarchy-theme-next`, Walker theme picker on `Super+Ctrl+Shift+Space`. All official Omarchy packs. Wallpaper via swaybg. Chromium chrome is generation-bound (managed policy). |
 | **apps** | Browser, file manager, Neovim, screenshot + clipboard helpers | Chromium, Nautilus, Neovim, btop, grim/slurp/satty, wl-clipboard, cliphist. |
 | **storage** | LUKS2 + Btrfs `@` / `@home` + Snapper rollback, Limine snapshot menu | Documents and wires Snapper; optionally opens a LUKS device you already created; opt-in disko formats a disk; **opt-in Limine** puts Snapper `@` snapshots on the boot menu. **Does not reformat disks unless `storage.disko.enable`.** Does not treat an unencrypted ext4 root as equivalent. |
@@ -158,7 +158,7 @@ Under Home Manager-as-a-NixOS-module, the HM module reads `osConfig.programs.oma
 | Next wallpaper | `omarchy-theme-bg-next` |
 | Set wallpaper | `omarchy-theme-bg-set ~/Pictures/wall.webp` |
 
-Each flip updates GTK (`gsettings` color-scheme + theme), icon theme, Hyprland border colors, the Ghostty `omarchy` theme file, hyprlock color tokens, mako notification colors, Waybar CSS (`@foreground` / `@background`), Walker GTK CSS (`@selected-text` / `@text` / `@base` / `@border`), Neovim (official `neovim.lua` colorscheme, or palette highlight groups), btop (`themes/current.theme`), and the desktop wallpaper (swaybg). Chromium chrome follows `programs.omarchy.theme.name` via a managed policy and does **not** live-retint — see [Chromium chrome](#chromium-chrome).
+Each flip updates GTK (`gsettings` color-scheme + theme), icon theme, Hyprland border colors, the Ghostty `omarchy` theme file, hyprlock color tokens, mako notification colors, Waybar CSS (`@foreground` / `@background`), Walker GTK CSS (`@selected-text` / `@text` / `@base` / `@border`), swayosd CSS (`@background-color` / `@border-color` / `@label` / `@image` / `@progress`), Neovim (official `neovim.lua` colorscheme, or palette highlight groups), btop (`themes/current.theme`), and the desktop wallpaper (swaybg). Chromium chrome follows `programs.omarchy.theme.name` via a managed policy and does **not** live-retint — see [Chromium chrome](#chromium-chrome). hyprsunset is a temperature toggle, not a palette.
 
 Official packs, colors from basecamp/omarchy `themes/*/colors.toml`:
 
@@ -166,7 +166,7 @@ Official packs, colors from basecamp/omarchy `themes/*/colors.toml`:
 
 Light packs: `catppuccin-latte`, `flexoki-light`, `lupine`, `rose-pine`, `white`.
 
-Drop extra theme directories in `~/.config/omarchy/themes/<name>/` (`colors.toml`, `hyprland.conf`, `ghostty`, `icons.theme`, `hyprlock.conf`, `mako.ini`, `waybar.css`, `walker.css`, `neovim.lua`, `btop.theme`, `chromium.theme`, optional `light.mode`, optional `backgrounds/`). User themes win over the packaged packs. A theme that only ships `colors.toml` still gets lock / mako / Waybar / Walker / Neovim / btop / `chromium.theme` snippets generated at apply time. User `chromium.theme` does not rewrite `/etc` — Chromium chrome stays on the generation-declared `theme.name`.
+Drop extra theme directories in `~/.config/omarchy/themes/<name>/` (`colors.toml`, `hyprland.conf`, `ghostty`, `icons.theme`, `hyprlock.conf`, `mako.ini`, `waybar.css`, `walker.css`, `swayosd.css`, `neovim.lua`, `btop.theme`, `chromium.theme`, optional `light.mode`, optional `backgrounds/`). User themes win over the packaged packs. A theme that only ships `colors.toml` still gets lock / mako / Waybar / Walker / swayosd / Neovim / btop / `chromium.theme` snippets generated at apply time. User `chromium.theme` does not rewrite `/etc` — Chromium chrome stays on the generation-declared `theme.name`.
 
 ### Wallpaper
 
@@ -181,7 +181,7 @@ Add your own images (jpg / jpeg / png / gif / bmp / webp):
 
 User images in `~/.config/omarchy/backgrounds/<name>/` are merged with the pack and sorted. `omarchy-theme-bg-next` walks that list. A pack or user theme with no images still retints every other surface; the switcher prints where to drop files.
 
-`makoctl reload` and a Waybar `SIGUSR2` apply those surfaces without logging out. Hyprland reloads via `hyprctl`. Walker’s GTK service is restarted so it re-reads `walker.css`. Running Neovim instances are retinted in place (`nvim --server` on `omarchy-nvim-*.sock`, then `SIGUSR1`). Running btop reloads via `SIGUSR2` (same as Omarchy’s `omarchy-restart-btop`). **hyprlock has no reload IPC** — the next lock picks up the new colors; a lock already on screen keeps the old ones. The lock still uses a blurred screenshot, not the desktop wallpaper.
+`makoctl reload` and a Waybar `SIGUSR2` apply those surfaces without logging out. Hyprland reloads via `hyprctl`. Walker’s GTK service is restarted so it re-reads `walker.css`. `omarchy-restart-swayosd` bounces the user unit so `current/swayosd.css` is re-read. Running Neovim instances are retinted in place (`nvim --server` on `omarchy-nvim-*.sock`, then `SIGUSR1`). Running btop reloads via `SIGUSR2` (same as Omarchy’s `omarchy-restart-btop`). **hyprlock has no reload IPC** — the next lock picks up the new colors; a lock already on screen keeps the old ones. The lock still uses a blurred screenshot, not the desktop wallpaper.
 
 ### Neovim and btop
 
@@ -223,7 +223,7 @@ chromium --refresh-platform-policy --no-startup-window
 
 #### Honest limits
 
-- Live theme cycle / Walker picker retints GTK, Hyprland, Ghostty, lock, mako, Waybar, Walker, Neovim, btop, and wallpaper. Chromium chrome stays on the last rebuilt `theme.name`.
+- Live theme cycle / Walker picker retints GTK, Hyprland, Ghostty, lock, mako, Waybar, Walker, swayosd, Neovim, btop, and wallpaper. Chromium chrome stays on the last rebuilt `theme.name`. hyprsunset does not follow the palette.
 - `BrowserThemeColor` is the Linux-supported key (toolbar / frame seed from the pack background). `BrowserColorScheme = "device"` is copied from Omarchy’s JSON; on Linux it may show as unknown in `chrome://policy` and is ignored per-key. We do not invent a Linux `BrowserColorScheme` integer.
 - A custom `theme.name` that is not an official pack uses Omarchy’s fallback `#1c2027` until you override `programs.chromium.extraOpts.BrowserThemeColor` yourself.
 - Standalone Home Manager cannot install managed policies (no `/etc`). The user module still seeds `chromium.theme` so the file exists; the browser will not read it.
@@ -237,6 +237,8 @@ chromium --refresh-platform-policy --no-startup-window
 | `Super+Space` | Walker |
 | `Super+Ctrl+E` | Walker symbols (emoji) |
 | `Super+Ctrl+L` | hyprlock |
+| `Super+Ctrl+N` | Toggle night light (hyprsunset 4000K / 6000K) |
+| `XF86Audio*` / `XF86MonBrightness*` | Volume / brightness via swayosd (works on the lock screen) |
 | `Super+,` | Dismiss last mako notification |
 | `Super+Shift+,` | Dismiss all mako notifications |
 | `Super+B` | Chromium |
@@ -266,6 +268,16 @@ Idle (hypridle, seconds from idle — same numbers as Omarchy’s `shell.json`):
 | 300 | Lock with hyprlock |
 
 `loginctl lock-session` / suspend also lock via hypridle’s `lock_cmd`. The NixOS module installs `security.pam.services.hyprlock` so unlock works. Standalone Home Manager users must set that PAM service on the host themselves.
+
+hyprsunset and swayosd are systemd user units, same as hypridle. They are **not** Hyprland `exec-once` lines, so they do not fight the lock/idle stack after suspend. Media binds use Hyprland `bindel` / `bindl` and still fire on hyprlock.
+
+### Night light and OSD
+
+Omarchy’s night light is a toggle, not a schedule. `~/.config/hypr/hyprsunset.conf` ships an identity profile at 07:00 so hyprsunset does not tint the display until you ask. `Super+Ctrl+N` / `omarchy-toggle-nightlight` warms to 4000K and back to 6000K — that pair is what Omarchy’s script uses (the manual says 6500K). Clock-based night light is a user override of `services.hyprsunset.settings`; this flake does not invent a sunrise/sunset scheduler.
+
+Volume, brightness, and media keys go through `omarchy-swayosd-client` (swayosd on the focused monitor). Caps / Num / Scroll Lock feedback is the NixOS `swayosd-libinput-backend` system unit — it needs `/dev/input`, so standalone Home Manager cannot own it. Style tokens live in `current/swayosd.css` and follow `omarchy-theme-set`.
+
+Quattro’s native shell OSD is **not** what we ship. Same reason as Walker 2.x: nixpkgs has swayosd, not Omarchy’s in-process shell.
 
 ### Greeter and unlock art
 
@@ -458,7 +470,7 @@ Ordered the way the pillars were stubbed.
    - [x] hyprlock + hypridle (lock on idle; PAM on NixOS)
    - [x] mako notifications
    - [x] Walker config, GTK CSS, and Elephant providers (clipboard, calc, files, symbols, menus)
-   - [ ] hyprsunset / swayosd defaults
+   - [x] hyprsunset / swayosd defaults (identity night light + Super+Ctrl+N; volume/brightness OSD; Caps via NixOS libinput backend)
    - [x] SDDM greeter + Hyprland/UWSM session (`programs.omarchy.shell.greeter`; autologin off)
    - [x] Plymouth unlock art (`unlock.png` from official packs; initrd rebuild; systemd initrd recommended)
    - [ ] Live greeter / Plymouth retint from `omarchy-theme-set` (store + initrd are immutable)
@@ -467,10 +479,11 @@ Ordered the way the pillars were stubbed.
 
 2. **Theme**
    - [x] `omarchy-theme-set` / `--next` / `--list`
-   - [x] One keybind that retints GTK + Hyprland + Ghostty + icons + hyprlock + mako + Waybar + Walker + Neovim + btop
+   - [x] One keybind that retints GTK + Hyprland + Ghostty + icons + hyprlock + mako + Waybar + Walker + swayosd + Neovim + btop
    - [x] Official Omarchy palettes (`catppuccin`, `catppuccin-latte`, `ethereal`, `everforest`, `flexoki-light`, `gruvbox`, `hackerman`, `kanagawa`, `last-horizon`, `lumon`, `lupine`, `matte-black`, `miasma`, `nord`, `osaka-jade`, `retro-82`, `ristretto`, `rose-pine`, `solitude`, `tokyo-night`, `vantablack`, `white`)
    - [x] Wallpaper: official `backgrounds/` fetched from basecamp/omarchy; apply-time switch via swaybg; user `backgrounds/` overlay
    - [x] Walker GTK CSS from `omarchy-theme-set` (`current/walker.css`)
+   - [x] swayosd CSS from `omarchy-theme-set` (`current/swayosd.css`; server restart)
    - [x] Theme preview picker (Elephant `menus:omarchythemes`) and wallpaper picker (`menus:omarchyBackgroundSelector`)
    - [x] Neovim retint from official `neovim.lua` (nixpkgs colorscheme plugins + `colors.toml` fallback)
    - [x] btop retint (`current.theme` symlink, official `btop.theme` where the pack ships one)
@@ -500,7 +513,7 @@ Ordered the way the pillars were stubbed.
 | `nixosModules.disko` | nix-community/disko — required only for `storage.disko.enable` |
 | `lib.mkOmarchyDisko` | Pure `disko.devices` attrset for the Omarchy layout |
 | `homeManagerModules.default` / `homeManagerModules.omarchy` | User Hyprland / Ghostty / theme stubs |
-| `packages.<system>.omarchy-theme-tools` | Theme CLI + Walker launch/restart + wallpaper helper + screenshot helper + official palettes |
+| `packages.<system>.omarchy-theme-tools` | Theme CLI + Walker launch/restart + wallpaper helper + screenshot helper + nightlight/OSD helpers + official palettes |
 | `packages.<system>.omarchy-greeter` | SDDM theme + Plymouth unlock theme (official `unlock.png`, recolored chrome) |
 | `packages.<system>.omarchy-limine-snapper` | `omarchy-snapshot` / `omarchy-limine-snapper` — Limine `/Snapshots` sync and `@` restore |
 | `overlays.default` | Exposes `omarchy-theme-tools`, `omarchy-greeter`, and `omarchy-limine-snapper` |
