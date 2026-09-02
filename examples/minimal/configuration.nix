@@ -50,6 +50,9 @@
   #
   # Create `.snapshots` under `@` and `@home` (or mount `@.snapshots` at
   # `/.snapshots`) before Snapper will take rollbacks.
+  #
+  # New installs that should *create* that layout: see examples/disko.
+  # That path wipes the target disk. This example does not.
 
   system.stateVersion = "25.11";
 }

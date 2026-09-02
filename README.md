@@ -17,7 +17,7 @@ All four are **on by default** once you set `programs.omarchy.enable = true`. Ea
 | **shell** | Hyprland + Walker + Ghostty feels like Omarchy at first login | Enables `programs.hyprland` (UWSM), Ghostty, Walker, Waybar, Elephant (Walker 2.x backend, including menus/clipboard/calc/files/symbols), **hyprlock + hypridle** (lock on idle), **mako** (notifications), and **SDDM + Plymouth** (greeter / unlock art). Home Manager writes the Hyprland/Ghostty/lock baseline, Walker config + GTK CSS, and keybinds. |
 | **theme** | One command / keybind flips GTK + Hyprland + terminal + icons + lock + notifications + bar + launcher + Neovim + btop + wallpaper together; Chromium chrome follows `theme.name` | `omarchy-theme-set <name>`, `omarchy-theme-next`, Walker theme picker on `Super+Ctrl+Shift+Space`. All official Omarchy packs. Wallpaper via swaybg. Chromium chrome is generation-bound (managed policy). |
 | **apps** | Browser, file manager, Neovim, screenshot + clipboard helpers | Chromium, Nautilus, Neovim, btop, grim/slurp/satty, wl-clipboard, cliphist. |
-| **storage** | LUKS2 + Btrfs `@` / `@home` + Snapper rollback | Documents and wires Snapper; optionally opens a LUKS device you already created. **Does not reformat disks. Does not treat an unencrypted ext4 root as equivalent.** |
+| **storage** | LUKS2 + Btrfs `@` / `@home` + Snapper rollback | Documents and wires Snapper; optionally opens a LUKS device you already created. **Does not reformat disks unless you opt into `storage.disko`.** Does not treat an unencrypted ext4 root as equivalent. |
 
 ## Install Nix with Determinate
 
@@ -107,9 +107,9 @@ See [Determinate’s NixOS install notes](https://docs.determinate.systems/guide
 }
 ```
 
-`nixosModules.default` and `nixosModules.omarchy` are the same module. Home Manager: `homeManagerModules.default` / `homeManagerModules.omarchy`.
+`nixosModules.default` and `nixosModules.omarchy` are the same module. Home Manager: `homeManagerModules.default` / `homeManagerModules.omarchy`. `nixosModules.disko` is **not** in the default import — it is the formatting path (see [Storage](#storage-not-optional-for-parity)).
 
-A complete host sketch lives in [`examples/minimal`](examples/minimal).
+A complete host sketch lives in [`examples/minimal`](examples/minimal). A new-install sketch that **wipes a disk** lives in [`examples/disko`](examples/disko).
 
 Rebuild with flakes (Determinate enables them):
 
@@ -314,20 +314,25 @@ SDDM never sees the disk passphrase. Do not expect the greeter to replace FDE un
 
 Omarchy’s installer encrypts the root disk and lays out Btrfs subvolumes so Snapper (and the bootloader) can roll back a bad update without taking `/home` with it. **That is the product.** An unencrypted ext4 (or xfs, or a single Btrfs subvolume with no Snapper) is a different machine.
 
+Verified against the Omarchy ISO configurator (`omacom-io/omarchy-iso`, encrypted path): LUKS2, Btrfs label `OMARCHY`, subvolumes `@` `@home` `@log` `@pkg`, mount `-o noatime,compress=zstd`, 2GiB FAT32 ESP labeled `OMARCHY_EFI`. The ISO does not create `.snapshots` at format time — `snapper create-config` does that later. NixOS Snapper does not run `create-config`, so the disko snippet adds nested `.snapshots` under `@` and `@home`.
+
 Expected layout:
 
 ```text
-ESP          vfat    /boot
+ESP          vfat    /boot     (2G, OMARCHY_EFI)
 cryptroot    LUKS2
-  └─ Btrfs
-       @            /          (Snapper config `root`)
-       @home        /home      (Snapper config `home`)
-       @.snapshots  /.snapshots   # or a `.snapshots` subvol under `@`
-       @log         /var/log      # optional, matches Omarchy
-       @pkg                     # optional; NixOS has no pacman cache
+  └─ Btrfs   label OMARCHY
+       @                 /                    (Snapper config `root`)
+       @/.snapshots      /.snapshots
+       @home             /home                (Snapper config `home`)
+       @home/.snapshots  /home/.snapshots
+       @log              /var/log
+       @pkg              /var/cache/pacman/pkg   # installer parity; NixOS has no pacman
 ```
 
-Create the LUKS container and subvolumes yourself (Calamares, disko, or by hand). Then declare them:
+### Default: warn, do not format
+
+Create the LUKS container and subvolumes yourself (Calamares, disko by hand, or this flake’s opt-in snippet). Then declare them:
 
 ```nix
 {
@@ -337,12 +342,12 @@ Create the LUKS container and subvolumes yourself (Calamares, disko, or by hand)
   fileSystems."/" = {
     device = "/dev/mapper/cryptroot";
     fsType = "btrfs";
-    options = [ "subvol=@" "compress=zstd" ];
+    options = [ "subvol=@" "compress=zstd" "noatime" ];
   };
   fileSystems."/home" = {
     device = "/dev/mapper/cryptroot";
     fsType = "btrfs";
-    options = [ "subvol=@home" "compress=zstd" ];
+    options = [ "subvol=@home" "compress=zstd" "noatime" ];
   };
   fileSystems."/boot" = {
     device = "/dev/disk/by-uuid/YOUR-ESP-UUID";
@@ -353,12 +358,42 @@ Create the LUKS container and subvolumes yourself (Calamares, disko, or by hand)
 
 `programs.omarchy.storage` will:
 
-- Open that LUKS device as `cryptroot` (name overridable)
+- Open that LUKS device as `cryptroot` (name overridable; the ISO uses `omarchy_root`)
 - Enable Snapper timeline + boot snapshots for `/` and `/home`
 - Install `btrfs-progs`, `snapper`, and `cryptsetup`
 - **Warn** if `luks.device` is unset or `/` / `/home` are not Btrfs
 
-It will **not** run `cryptsetup luksFormat` or `mkfs.btrfs`. You still need a `.snapshots` subvolume on each Snapper target (Snapper’s own requirement). Snapper is pointed at the mount points `/` and `/home`, not at Btrfs subvolume names — those names (`@`, `@home`) belong in your `fileSystems` declarations. A later disko snippet will create that layout; unused `rootSubvolume` / `homeSubvolume` options are not exposed in the meantime.
+It will **not** run `cryptsetup luksFormat` or `mkfs.btrfs`. You still need a `.snapshots` subvolume on each Snapper target (Snapper’s own requirement). Snapper is pointed at the mount points `/` and `/home`, not at Btrfs subvolume names — those names (`@`, `@home`) belong in your `fileSystems` declarations or in the disko snippet below.
+
+### Opt-in: disko snippet (wipes the disk)
+
+`programs.omarchy.storage.disko.enable` is **off by default**. Turning it on writes `disko.devices` for the layout above. The next `disko` / `nixos-install` **destroys every partition** on `storage.disko.device`.
+
+1. Import `omarchy-nix.nixosModules.disko` (re-exports [nix-community/disko](https://github.com/nix-community/disko); not part of `nixosModules.default`).
+2. Set the disk you are willing to lose.
+3. Do **not** also set `storage.luks.device` or a `hardware-configuration.nix` that restates `fileSystems` / LUKS — disko owns those.
+
+```nix
+{
+  programs.omarchy.enable = true;
+
+  programs.omarchy.storage.disko.enable = true;
+  programs.omarchy.storage.disko.device = "/dev/nvme0n1"; # WILL BE WIPED
+  # programs.omarchy.storage.disko.efiSize = "2G";         # ISO default
+  # programs.omarchy.storage.luks.name = "cryptroot";
+  # programs.omarchy.storage.disko.passwordFile = "/tmp/luks-password"; # else prompt
+}
+```
+
+From a NixOS installer (Determinate Nix, flakes on):
+
+```bash
+sudo nix run github:nix-community/disko -- \
+  --mode destroy,format,mount --flake .#your-host
+sudo nixos-install --flake .#your-host
+```
+
+A full host sketch is [`examples/disko`](examples/disko) (`nix flake new -t github:zachspar/omarchy-nix#disko`). The layout function is also `omarchy-nix.lib.mkOmarchyDisko { device = "/dev/vda"; }` if you want the attrset without the module.
 
 NixOS rollbacks via `nixos-rebuild` / generation boot entries are complementary, not a substitute for filesystem snapshots. Omarchy’s story is both: generations for the store, Snapper for the live Btrfs subvolumes.
 
@@ -406,7 +441,7 @@ Ordered the way the pillars were stubbed.
    - [x] Document LUKS + `@` / `@home` as the required layout
    - [x] Snapper configs + boot snapshot (mount points `/` and `/home`)
    - [x] Optional `storage.luks.device` wiring
-   - [ ] disko snippet that creates `@` / `@home` (layout names stay with disko, not unused module options)
+   - [x] Opt-in `storage.disko` snippet (`@` / `@home` / `@log` / `@pkg` + Snapper `.snapshots`; wipes the disk)
    - [ ] Limine + snapper-sync boot-menu rollback
    - [x] Initrd unlock theme (`unlock.png` via Plymouth; see greeter limits above)
 
@@ -414,12 +449,15 @@ Ordered the way the pillars were stubbed.
 
 | Output | Purpose |
 | --- | --- |
-| `nixosModules.default` / `nixosModules.omarchy` | `programs.omarchy` |
+| `nixosModules.default` / `nixosModules.omarchy` | `programs.omarchy` (does **not** format disks) |
+| `nixosModules.disko` | nix-community/disko — required only for `storage.disko.enable` |
+| `lib.mkOmarchyDisko` | Pure `disko.devices` attrset for the Omarchy layout |
 | `homeManagerModules.default` / `homeManagerModules.omarchy` | User Hyprland / Ghostty / theme stubs |
 | `packages.<system>.omarchy-theme-tools` | Theme CLI + Walker launch/restart + wallpaper helper + screenshot helper + official palettes |
 | `packages.<system>.omarchy-greeter` | SDDM theme + Plymouth unlock theme (official `unlock.png`, recolored chrome) |
 | `overlays.default` | Exposes `omarchy-theme-tools` and `omarchy-greeter` |
 | `templates.minimal` | `nix flake new -t github:zachspar/omarchy-nix#minimal` |
+| `templates.disko` | Same, with `storage.disko` on — **wipes the named disk** |
 | `formatter` | `nixfmt-rfc-style` |
 
 Linux systems: `x86_64-linux`, `aarch64-linux`.

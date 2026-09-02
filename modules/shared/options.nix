@@ -226,8 +226,8 @@ in
       enable = mkPillarEnable ''
         Storage pillar: LUKS + Btrfs `@` / `@home` + Snapper (or equivalent)
         for rollback. Omarchy does not treat an unencrypted ext4 root as a
-        supported layout. This module will not reformat disks; you must
-        declare the LUKS device and Btrfs subvolumes in your host config.
+        supported layout. Default: warn, wire Snapper, never format. Opt-in
+        `storage.disko.enable` is the path that wipes a disk.
       '';
 
       luks = {
@@ -237,8 +237,9 @@ in
           example = "/dev/disk/by-uuid/00000000-0000-0000-0000-000000000000";
           description = ''
             LUKS backing device. When set, wires
-            `boot.initrd.luks.devices.<name>`. Leave null only while you
-            still declare LUKS yourself — do not ship an unencrypted
+            `boot.initrd.luks.devices.<name>`. Leave null if
+            `storage.disko.enable` is on (disko owns the mapping) or while
+            you still declare LUKS yourself — do not ship an unencrypted
             Omarchy machine.
           '';
         };
@@ -267,6 +268,91 @@ in
           type = types.bool;
           default = true;
           description = "Take a root snapshot on boot, matching Omarchy's rollback posture.";
+        };
+      };
+
+      disko = {
+        enable = mkOption {
+          type = types.bool;
+          default = false;
+          description = ''
+            DANGER: opt-in full-disk format. When true, this module writes
+            `disko.devices` for Omarchy's LUKS2 + Btrfs layout and **will
+            wipe** `storage.disko.device` the next time you run disko
+            (`destroy,format,mount` or nixos-install with disko).
+
+            Off by default. Import `omarchy-nix.nixosModules.disko` (or
+            nix-community/disko's NixOS module) before enabling. Subvolume
+            names stay in the layout (`@`, `@home`, …) — they are not
+            unused `programs.omarchy` options.
+          '';
+        };
+
+        device = mkOption {
+          type = types.nullOr types.str;
+          default = null;
+          example = "/dev/nvme0n1";
+          description = ''
+            Whole disk to partition. Required when `disko.enable` is true.
+            Every partition on this device is destroyed.
+          '';
+        };
+
+        diskName = mkOption {
+          type = types.str;
+          default = "main";
+          description = "Attribute name under `disko.devices.disk`.";
+        };
+
+        efiSize = mkOption {
+          type = types.str;
+          default = "2G";
+          example = "1G";
+          description = ''
+            ESP size. Omarchy's installer allocates 2GiB (UKIs / Limine).
+            systemd-boot can live in less; keep 2G if you want the same
+            envelope the ISO uses.
+          '';
+        };
+
+        extraMountOptions = mkOption {
+          type = types.listOf types.str;
+          default = [
+            "noatime"
+            "compress=zstd"
+          ];
+          description = ''
+            Btrfs mount options on every Omarchy subvolume. Matches the
+            ISO: `mount -o noatime,compress=zstd,subvol=@…`.
+          '';
+        };
+
+        passwordFile = mkOption {
+          type = types.nullOr types.str;
+          default = null;
+          example = "/tmp/luks-password";
+          description = ''
+            Absolute path whose contents are the LUKS passphrase at format
+            time. String, not a Nix path — a path literal would copy the
+            secret into the store. Null (default) uses disko's interactive
+            prompt.
+          '';
+        };
+
+        allowDiscards = mkOption {
+          type = types.bool;
+          default = true;
+          description = "LUKS `allowDiscards` (TRIM through the container).";
+        };
+
+        includePkg = mkOption {
+          type = types.bool;
+          default = true;
+          description = ''
+            Create Omarchy's `@pkg` at `/var/cache/pacman/pkg`. NixOS has
+            no pacman cache; the subvolume stays for installer layout
+            parity. Set false to skip it.
+          '';
         };
       };
     };
