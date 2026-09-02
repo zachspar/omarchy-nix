@@ -256,6 +256,9 @@ let
 
         staging="$(mktemp -d)"
         cp -a "$src/." "$staging/"
+        # Store themes are 555/444; make the staging copy writable so we can
+        # record theme.name and generate missing lock/mako/waybar snippets.
+        chmod -R u+w "$staging"
         printf '%s\n' "$name" > "$staging/theme.name"
         rm -rf "$current_dir"
         mv "$staging" "$current_dir"
