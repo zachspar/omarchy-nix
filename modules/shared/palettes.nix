@@ -9,7 +9,8 @@
 # Source files live in ./official-themes/<name>/{colors.toml,icons.theme,
 # neovim.lua?, btop.theme?}. neovim.lua is copied from basecamp/omarchy when
 # the pack ships one; btop.theme likewise, otherwise generated from the
-# official template and colors.toml.
+# official template and colors.toml. Chromium chrome uses
+# chromium.theme.tpl (`{{ background_rgb }}`) — packs do not ship that file.
 let
   names = [
     "catppuccin"

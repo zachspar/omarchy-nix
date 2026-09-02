@@ -22,6 +22,8 @@
 let
   palettes = import ../../modules/shared/palettes.nix;
   officialBackgrounds = import ./official-backgrounds.nix { inherit fetchgit; };
+  chromiumPolicy = import ../../modules/shared/chromium-policy.nix { inherit lib; };
+  chromiumThemeTpl = builtins.readFile ../../modules/shared/official-themes/chromium.theme.tpl;
 
   hex = value: if lib.hasPrefix "#" value then value else "#${value}";
 
@@ -261,6 +263,12 @@ let
           officialDir + "/btop.theme"
         else
           writeText "${name}-btop.theme" generatedBtop;
+      # Official packs do not ship chromium.theme. Omarchy fills
+      # default/themed/chromium.theme.tpl from colors.toml background.
+      chromiumTheme = writeText "${name}-chromium.theme" (
+        builtins.replaceStrings [ "{{ background_rgb }}" ] [ (chromiumPolicy.fromPalette p).rgb ]
+          chromiumThemeTpl
+      );
       neovimPalette = writeText "${name}-neovim-palette.lua" ''
         -- Generated from official colors.toml.
         return {
@@ -311,6 +319,7 @@ let
       neovim = neovimLua;
       neovimPalette = neovimPalette;
       btop = btopTheme;
+      chromium = chromiumTheme;
     };
 
   rendered = lib.mapAttrs render palettes;
@@ -330,6 +339,7 @@ let
       cp ${t.neovim} "$out/share/omarchy/themes/${t.name}/neovim.lua"
       cp ${t.neovimPalette} "$out/share/omarchy/themes/${t.name}/neovim-palette.lua"
       cp ${t.btop} "$out/share/omarchy/themes/${t.name}/btop.theme"
+      cp ${t.chromium} "$out/share/omarchy/themes/${t.name}/chromium.theme"
       ${lib.optionalString (t.mode == "light") ''
         : > "$out/share/omarchy/themes/${t.name}/light.mode"
       ''}
@@ -547,10 +557,12 @@ let
         echo "omarchy: wallpaper ''${backgrounds[$idx]}"
       }
 
-      # Built-in palettes ship hyprlock/mako/waybar/walker/neovim/btop snippets.
-      # User themes that only drop colors.toml get the same files generated so
-      # one command still retints lock, notifications, the bar, launcher,
-      # Neovim, and btop.
+      # Built-in palettes ship hyprlock/mako/waybar/walker/neovim/btop and
+      # chromium.theme snippets. User themes that only drop colors.toml get
+      # the same files generated so one command still retints lock,
+      # notifications, the bar, launcher, Neovim, and btop. Chromium chrome
+      # is a NixOS managed policy keyed off theme.name — generating
+      # chromium.theme here does not rewrite /etc.
       ensure_surface_snippets() {
         colors="$current_dir/colors.toml"
         if [ ! -f "$colors" ]; then
@@ -757,6 +769,11 @@ let
             "theme[gradient_color_7]=\"''${bright_fg}\"" \
             > "$current_dir/btop.theme"
         fi
+
+        # Omarchy default/themed/chromium.theme.tpl is `{{ background_rgb }}`.
+        if [ ! -f "$current_dir/chromium.theme" ]; then
+          printf '%s\n' "$(hex_to_rgb "$bg" | tr -d ' ')" > "$current_dir/chromium.theme"
+        fi
       }
 
       reload_nvim() {
@@ -779,6 +796,24 @@ let
           ln -nsf "$current_dir/btop.theme" "$config_home/btop/themes/current.theme"
         fi
         pkill -USR2 -x btop >/dev/null 2>&1 || true
+      }
+
+      # Ask a running Chromium to re-read /etc managed policies. This is
+      # Omarchy's omarchy-theme-set-browser refresh path. On NixOS the
+      # policy JSON is generation-declared, so the color only changes after
+      # nixos-rebuild updates extra.json. We do not tee /etc (no sudoers
+      # helper, no world-writable managed dir).
+      refresh_chromium_policy() {
+        refresh_one() {
+          cmd="$1"
+          proc="$2"
+          if command -v "$cmd" >/dev/null && pgrep -x "$proc" >/dev/null 2>&1; then
+            "$cmd" --refresh-platform-policy --no-startup-window >/dev/null 2>&1 || true
+          fi
+        }
+        refresh_one chromium chromium || true
+        refresh_one google-chrome-stable chrome || refresh_one google-chrome chrome || true
+        refresh_one brave brave || true
       }
 
       apply_theme() {
@@ -858,12 +893,10 @@ let
 
         reload_nvim
         reload_btop
+        refresh_chromium_policy
 
         # hyprlock has no reload IPC. It sources current/hyprlock.conf the next
         # time it starts. A lock already on screen keeps its old colors.
-
-        # Chromium: Omarchy writes /etc/chromium/policies/managed/color.json as
-        # root. We do not ship a sudoers helper; NixOS policies are declarative.
 
         apply_theme_wallpaper "$name" "$src"
 
