@@ -126,7 +126,7 @@ in
           (
             cfg.shell.greeter.plymouth.enable
             && cfg.storage.enable
-            && cfg.storage.luks.device != null
+            && (cfg.storage.luks.device != null || cfg.storage.disko.enable)
             && !config.boot.initrd.systemd.enable
           )
           [

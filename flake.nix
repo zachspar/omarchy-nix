@@ -7,12 +7,17 @@
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    disko = {
+      url = "github:nix-community/disko";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
     {
       self,
       nixpkgs,
+      disko,
       ...
     }:
     let
@@ -27,7 +32,19 @@
       nixosModules = {
         default = self.nixosModules.omarchy;
         omarchy = import ./modules/nixos;
+        # Opt-in. Importing this (and setting storage.disko.enable) formats
+        # disks. The default module does not pull this in.
+        disko = disko.nixosModules.disko;
       };
+
+      lib.mkOmarchyDisko =
+        args:
+        import ./modules/shared/disko-layout.nix (
+          {
+            inherit (nixpkgs) lib;
+          }
+          // args
+        );
 
       homeManagerModules = {
         default = self.homeManagerModules.omarchy;
@@ -53,9 +70,22 @@
 
       formatter = forAllSystems (system: nixpkgs.legacyPackages.${system}.nixfmt);
 
+      checks = forAllSystems (
+        system:
+        import ./tests/eval.nix {
+          inherit self lib system;
+          pkgs = nixpkgs.legacyPackages.${system};
+        }
+      );
+
       templates.minimal = {
         path = ./examples/minimal;
         description = "Minimal NixOS host importing programs.omarchy";
+      };
+
+      templates.disko = {
+        path = ./examples/disko;
+        description = "DANGER: NixOS host that formats a disk to Omarchy's LUKS+Btrfs layout";
       };
     };
 }
