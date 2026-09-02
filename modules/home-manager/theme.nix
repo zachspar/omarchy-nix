@@ -34,13 +34,13 @@ in
           color-scheme = if isLight then "prefer-light" else "prefer-dark";
         };
 
-        # Seed writable state so Hyprland/hyprlock/mako/Waybar/Walker can
-        # source a theme file before the first `omarchy-theme-set`, and so
+        # Seed writable state so Hyprland/hyprlock/mako/Waybar/Walker/Neovim/btop
+        # can source a theme file before the first `omarchy-theme-set`, and so
         # Ghostty's `theme = omarchy` resolves.
         home.activation.omarchyThemeSeed = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
           state="${currentTheme}"
           themes="${themeTools}/share/omarchy/themes/${cfg.theme.name}"
-          mkdir -p "$state" "${config.xdg.configHome}/ghostty/themes"
+          mkdir -p "$state" "${config.xdg.configHome}/ghostty/themes" "${config.xdg.configHome}/btop/themes"
           seed() {
             src="$1"
             dest="$2"
@@ -53,14 +53,20 @@ in
           seed "$themes/mako.ini" "$state/mako.ini"
           seed "$themes/waybar.css" "$state/waybar.css"
           seed "$themes/walker.css" "$state/walker.css"
+          seed "$themes/neovim.lua" "$state/neovim.lua"
+          seed "$themes/neovim-palette.lua" "$state/neovim-palette.lua"
+          seed "$themes/btop.theme" "$state/btop.theme"
           seed "$themes/ghostty" "${config.xdg.configHome}/ghostty/themes/omarchy"
+          if [ -f "$state/btop.theme" ]; then
+            ln -nsf "$state/btop.theme" "${config.xdg.configHome}/btop/themes/current.theme"
+          fi
         '';
 
         # Apply the configured theme on graphical login so the first session
         # matches programs.omarchy.theme.name before any keybind is pressed.
         systemd.user.services.omarchy-theme-apply = {
           Unit = {
-            Description = "Apply Omarchy theme (GTK + Hyprland + Ghostty + lock/notify/bar + icons + wallpaper)";
+            Description = "Apply Omarchy theme (GTK + Hyprland + Ghostty + lock/notify/bar + nvim/btop + icons + wallpaper)";
             After = [ "graphical-session.target" ];
             PartOf = [ "graphical-session.target" ];
           };
@@ -91,9 +97,24 @@ in
           Install.WantedBy = [ "graphical-session.target" ];
         };
 
-        # TODO: Neovim, btop, Chromium theme files. hyprlock does
-        # not hot-reload an already-visible lock screen. Walker GTK CSS
-        # is rewritten via current/walker.css + omarchy-restart-walker.
+        # btop reads $XDG_CONFIG_HOME/btop/themes/current.theme; theme-set
+        # rewrites that symlink and sends SIGUSR2. color_theme stays "current".
+        programs.btop = {
+          enable = true;
+          settings = {
+            color_theme = lib.mkDefault "current";
+            theme_background = true;
+            truecolor = true;
+            vim_keys = true;
+          };
+        };
+
+        # Chromium policy theming (omarchy-theme-set-browser writing
+        # /etc/chromium/policies/managed/color.json as root) is not wired:
+        # NixOS wants declarative programs.chromium.extraOpts, and we are
+        # not adding a sudoers helper. chromium.theme is an Omarchy
+        # template, not a file official packs ship. hyprlock does not
+        # hot-reload an already-visible lock screen.
       }
 
       (lib.mkIf cfg.shell.enable {

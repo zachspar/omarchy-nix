@@ -36,6 +36,7 @@ in
       pkgs.wl-clipboard
       pkgs.cliphist
       pkgs.xdg-utils
+      pkgs.btop
     ]
     ++ cfg.apps.extraPackages;
   };

@@ -6,7 +6,10 @@
 # GTK theme is derived from `mode`. Hyprland border overrides are copied when
 # the upstream file defines them.
 #
-# Source files live in ./official-themes/<name>/{colors.toml,icons.theme}.
+# Source files live in ./official-themes/<name>/{colors.toml,icons.theme,
+# neovim.lua?, btop.theme?}. neovim.lua is copied from basecamp/omarchy when
+# the pack ships one; btop.theme likewise, otherwise generated from the
+# official template and colors.toml.
 let
   names = [
     "catppuccin"

@@ -16,6 +16,7 @@ in
     ./theme.nix
     ./terminal.nix
     ./apps.nix
+    ./neovim.nix
   ];
 
   # When composed under NixOS, inherit the host's programs.omarchy flags so

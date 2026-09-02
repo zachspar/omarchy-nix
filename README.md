@@ -15,8 +15,8 @@ All four are **on by default** once you set `programs.omarchy.enable = true`. Ea
 | Pillar | What “done” looks like | This stub |
 | --- | --- | --- |
 | **shell** | Hyprland + Walker + Ghostty feels like Omarchy at first login | Enables `programs.hyprland` (UWSM), Ghostty, Walker, Waybar, Elephant (Walker 2.x backend, including menus/clipboard/calc/files/symbols), **hyprlock + hypridle** (lock on idle), and **mako** (notifications). Home Manager writes the Hyprland/Ghostty/lock baseline, Walker config + GTK CSS, and keybinds. |
-| **theme** | One command / keybind flips GTK + Hyprland + terminal + icons + lock + notifications + bar + launcher + wallpaper together | `omarchy-theme-set <name>`, `omarchy-theme-next`, Walker theme picker on `Super+Ctrl+Shift+Space`. All official Omarchy packs. Wallpaper via swaybg. |
-| **apps** | Browser, file manager, Neovim, screenshot + clipboard helpers | Chromium, Nautilus, Neovim, grim/slurp/satty, wl-clipboard, cliphist. |
+| **theme** | One command / keybind flips GTK + Hyprland + terminal + icons + lock + notifications + bar + launcher + Neovim + btop + wallpaper together | `omarchy-theme-set <name>`, `omarchy-theme-next`, Walker theme picker on `Super+Ctrl+Shift+Space`. All official Omarchy packs. Wallpaper via swaybg. |
+| **apps** | Browser, file manager, Neovim, screenshot + clipboard helpers | Chromium, Nautilus, Neovim, btop, grim/slurp/satty, wl-clipboard, cliphist. |
 | **storage** | LUKS2 + Btrfs `@` / `@home` + Snapper rollback | Documents and wires Snapper; optionally opens a LUKS device you already created. **Does not reformat disks. Does not treat an unencrypted ext4 root as equivalent.** |
 
 ## Install Nix with Determinate
@@ -153,7 +153,7 @@ Under Home Manager-as-a-NixOS-module, the HM module reads `osConfig.programs.oma
 | Next wallpaper | `omarchy-theme-bg-next` |
 | Set wallpaper | `omarchy-theme-bg-set ~/Pictures/wall.webp` |
 
-Each flip updates GTK (`gsettings` color-scheme + theme), icon theme, Hyprland border colors, the Ghostty `omarchy` theme file, hyprlock color tokens, mako notification colors, Waybar CSS (`@foreground` / `@background`), Walker GTK CSS (`@selected-text` / `@text` / `@base` / `@border`), and the desktop wallpaper (swaybg).
+Each flip updates GTK (`gsettings` color-scheme + theme), icon theme, Hyprland border colors, the Ghostty `omarchy` theme file, hyprlock color tokens, mako notification colors, Waybar CSS (`@foreground` / `@background`), Walker GTK CSS (`@selected-text` / `@text` / `@base` / `@border`), Neovim (official `neovim.lua` colorscheme, or palette highlight groups), btop (`themes/current.theme`), and the desktop wallpaper (swaybg).
 
 Official packs, colors from basecamp/omarchy `themes/*/colors.toml`:
 
@@ -161,7 +161,7 @@ Official packs, colors from basecamp/omarchy `themes/*/colors.toml`:
 
 Light packs: `catppuccin-latte`, `flexoki-light`, `lupine`, `rose-pine`, `white`.
 
-Drop extra theme directories in `~/.config/omarchy/themes/<name>/` (`colors.toml`, `hyprland.conf`, `ghostty`, `icons.theme`, `hyprlock.conf`, `mako.ini`, `waybar.css`, `walker.css`, optional `light.mode`, optional `backgrounds/`). User themes win over the packaged packs. A theme that only ships `colors.toml` still gets lock / mako / Waybar / Walker snippets generated at apply time.
+Drop extra theme directories in `~/.config/omarchy/themes/<name>/` (`colors.toml`, `hyprland.conf`, `ghostty`, `icons.theme`, `hyprlock.conf`, `mako.ini`, `waybar.css`, `walker.css`, `neovim.lua`, `btop.theme`, optional `light.mode`, optional `backgrounds/`). User themes win over the packaged packs. A theme that only ships `colors.toml` still gets lock / mako / Waybar / Walker / Neovim / btop snippets generated at apply time.
 
 ### Wallpaper
 
@@ -176,7 +176,19 @@ Add your own images (jpg / jpeg / png / gif / bmp / webp):
 
 User images in `~/.config/omarchy/backgrounds/<name>/` are merged with the pack and sorted. `omarchy-theme-bg-next` walks that list. A pack or user theme with no images still retints every other surface; the switcher prints where to drop files.
 
-`makoctl reload` and a Waybar `SIGUSR2` apply those surfaces without logging out. Hyprland reloads via `hyprctl`. Walker’s GTK service is restarted so it re-reads `walker.css`. **hyprlock has no reload IPC** — the next lock picks up the new colors; a lock already on screen keeps the old ones. The lock still uses a blurred screenshot, not the desktop wallpaper.
+`makoctl reload` and a Waybar `SIGUSR2` apply those surfaces without logging out. Hyprland reloads via `hyprctl`. Walker’s GTK service is restarted so it re-reads `walker.css`. Running Neovim instances are retinted in place (`nvim --server` on `omarchy-nvim-*.sock`, then `SIGUSR1`). Running btop reloads via `SIGUSR2` (same as Omarchy’s `omarchy-restart-btop`). **hyprlock has no reload IPC** — the next lock picks up the new colors; a lock already on screen keeps the old ones. The lock still uses a blurred screenshot, not the desktop wallpaper.
+
+### Neovim and btop
+
+Official packs that ship `neovim.lua` in [basecamp/omarchy](https://github.com/basecamp/omarchy) keep that LazyVim spec. Home Manager Neovim (apps pillar) loads it through `~/.config/nvim/lua/omarchy-theme.lua` and applies the named colorscheme when the plugin is on the runtimepath:
+
+`tokyonight-night`, `catppuccin` / `catppuccin-latte`, `everforest`, `gruvbox`, `kanagawa`, `nordfox`, `rose-pine-dawn`, `bamboo` (osaka-jade).
+
+Packs with no `neovim.lua`, or whose plugin is not in nixpkgs (`hackerman`, `lumon`, `matte-black`, `flexoki-light`, `retro-82`, `solitude`, plus `ethereal` / `last-horizon` / `lupine` / `miasma` / `ristretto` / `vantablack` / `white`), use highlight groups generated from that pack’s `colors.toml`. New Neovim windows pick up the theme immediately; already-open ones retint via the listen socket / `SIGUSR1` as above. If neither path reaches a live instance, the next `nvim` start is enough.
+
+btop uses Omarchy’s `color_theme = "current"` convention: `omarchy-theme-set` points `~/.config/btop/themes/current.theme` at `~/.local/state/omarchy/current/btop.theme`. Four packs ship a hand-written `btop.theme` (`last-horizon`, `lumon`, `retro-82`, `solitude`); the rest are filled from Omarchy’s `btop.theme.tpl` and `colors.toml`. A running btop reloads on `SIGUSR2`; if none is running, the next launch reads `current`.
+
+Chromium managed-policy theming is **not** wired. Omarchy writes `/etc/chromium/policies/managed/color.json` as root (`omarchy-theme-set-browser`). Official packs do not ship `chromium.theme` (it is generated from a template), and this flake does not add a sudoers helper. NixOS browser policies stay declarative (`programs.chromium.extraOpts`) for a later pass.
 
 ### Shell keybinds (Home Manager)
 
@@ -289,15 +301,17 @@ Ordered the way the pillars were stubbed.
 
 2. **Theme**
    - [x] `omarchy-theme-set` / `--next` / `--list`
-   - [x] One keybind that retints GTK + Hyprland + Ghostty + icons + hyprlock + mako + Waybar + Walker
+   - [x] One keybind that retints GTK + Hyprland + Ghostty + icons + hyprlock + mako + Waybar + Walker + Neovim + btop
    - [x] Official Omarchy palettes (`catppuccin`, `catppuccin-latte`, `ethereal`, `everforest`, `flexoki-light`, `gruvbox`, `hackerman`, `kanagawa`, `last-horizon`, `lumon`, `lupine`, `matte-black`, `miasma`, `nord`, `osaka-jade`, `retro-82`, `ristretto`, `rose-pine`, `solitude`, `tokyo-night`, `vantablack`, `white`)
    - [x] Wallpaper: official `backgrounds/` fetched from basecamp/omarchy; apply-time switch via swaybg; user `backgrounds/` overlay
    - [x] Walker GTK CSS from `omarchy-theme-set` (`current/walker.css`)
    - [x] Theme preview picker (Elephant `menus:omarchythemes`) and wallpaper picker (`menus:omarchyBackgroundSelector`)
-   - [ ] Neovim, btop, Chromium retint
+   - [x] Neovim retint from official `neovim.lua` (nixpkgs colorscheme plugins + `colors.toml` fallback)
+   - [x] btop retint (`current.theme` symlink, official `btop.theme` where the pack ships one)
+   - [ ] Chromium managed-policy retint (`/etc/chromium/policies/managed`; needs a privileged helper we do not ship)
 
 3. **Apps**
-   - [x] Chromium, Nautilus, Neovim
+   - [x] Chromium, Nautilus, Neovim, btop
    - [x] grim + slurp + satty; wl-clipboard + cliphist
    - [ ] Omarchy default MIME / XDG associations beyond browser + files
    - [ ] Optional extras (1Password, Obsidian, …) only when they exist in nixpkgs — never as invented blobs

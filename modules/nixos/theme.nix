@@ -20,8 +20,10 @@ in
 
     environment.sessionVariables.OMARCHY_THEME = cfg.theme.name;
 
-    # TODO: Neovim, btop, Chromium policy. Official palettes already
-    # retint GTK, Hyprland, Ghostty, icons, hyprlock, mako, Waybar,
-    # Walker, and wallpaper (swaybg; backgrounds fetched from basecamp/omarchy).
+    # TODO: Chromium managed-policy theming. Official packs do not ship
+    # chromium.theme (it is generated from a template); applying it needs
+    # root write to /etc/chromium/policies/managed, which we are not adding.
+    # Neovim and btop retint from omarchy-theme-set (Home Manager neovim.lua
+    # loader + btop current.theme symlink).
   };
 }
