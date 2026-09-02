@@ -1,61 +1,145 @@
-# Minimal built-in palettes for the theme stub.
-# Colors match the public Omarchy theme `colors.toml` values; we do not vendor
-# Omarchy's CSS, wallpapers, or app-specific theme packs. The switcher renders
-# hyprlock / mako / Waybar snippets from these keys.
-{
-  tokyo-night = {
-    mode = "dark";
-    gtkTheme = "Adwaita-dark";
-    iconTheme = "Yaru-magenta";
-    accent = "7aa2f7";
-    cursor = "c0caf5";
-    foreground = "a9b1d6";
-    background = "1a1b26";
-    selectionForeground = "c0caf5";
-    selectionBackground = "7aa2f7";
-    color0 = "32344a";
-    color1 = "f7768e";
-    color2 = "9ece6a";
-    color3 = "e0af68";
-    color4 = "7aa2f7";
-    color5 = "ad8ee6";
-    color6 = "449dab";
-    color7 = "787c99";
-    color8 = "444b6a";
-    color9 = "ff7a93";
-    color10 = "b9f27c";
-    color11 = "ff9e64";
-    color12 = "7da6ff";
-    color13 = "bb9af7";
-    color14 = "0db9d7";
-    color15 = "acb0d0";
-  };
+# Official Omarchy palettes.
+# Color keys come from public basecamp/omarchy `themes/*/colors.toml` (master
+# @ b71dcad96e9d0b2962b7d225828a5cb6000ad720, MIT). Icon names come from each
+# pack's `icons.theme`. We do not invent hues; ANSI color0..15 follow
+# Omarchy's published alias map (background/red/green/…/bright_foreground).
+# GTK theme is derived from `mode`. Hyprland border overrides are copied when
+# the upstream file defines them.
+#
+# Source files live in ./official-themes/<name>/{colors.toml,icons.theme}.
+let
+  names = [
+    "catppuccin"
+    "catppuccin-latte"
+    "ethereal"
+    "everforest"
+    "flexoki-light"
+    "gruvbox"
+    "hackerman"
+    "kanagawa"
+    "last-horizon"
+    "lumon"
+    "lupine"
+    "matte-black"
+    "miasma"
+    "nord"
+    "osaka-jade"
+    "retro-82"
+    "ristretto"
+    "rose-pine"
+    "solitude"
+    "tokyo-night"
+    "vantablack"
+    "white"
+  ];
 
-  catppuccin-latte = {
-    mode = "light";
-    gtkTheme = "Adwaita";
-    iconTheme = "Yaru-blue";
-    accent = "1e66f5";
-    cursor = "dc8a78";
-    foreground = "4c4f69";
-    background = "eff1f5";
-    selectionForeground = "eff1f5";
-    selectionBackground = "dc8a78";
-    color0 = "bcc0cc";
-    color1 = "d20f39";
-    color2 = "40a02b";
-    color3 = "df8e1d";
-    color4 = "1e66f5";
-    color5 = "ea76cb";
-    color6 = "179299";
-    color7 = "5c5f77";
-    color8 = "acb0be";
-    color9 = "d20f39";
-    color10 = "40a02b";
-    color11 = "df8e1d";
-    color12 = "1e66f5";
-    color13 = "ea76cb";
-    color14 = "179299";
-    color15 = "6c6f85";
-  };
-}
+  stripHash =
+    value:
+    if builtins.isString value && builtins.substring 0 1 value == "#" then
+      builtins.substring 1 (builtins.stringLength value - 1) value
+    else
+      value;
+
+  get =
+    raw: key: default:
+    if builtins.hasAttr key raw then builtins.getAttr key raw else default;
+
+  hexOf =
+    raw: key: default:
+    stripHash (get raw key default);
+
+  readIcon =
+    name:
+    let
+      raw = builtins.readFile (./official-themes + "/${name}/icons.theme");
+    in
+    builtins.replaceStrings [ "\n" "\r" " " "\t" ] [ "" "" "" "" ] raw;
+
+  load =
+    name:
+    let
+      raw = builtins.fromTOML (builtins.readFile (./official-themes + "/${name}/colors.toml"));
+      mode = raw.mode;
+      accent = stripHash raw.accent;
+      background = stripHash raw.background;
+      foreground = stripHash raw.foreground;
+      brightForeground = hexOf raw "bright_foreground" foreground;
+      muted = hexOf raw "muted" background;
+      selection = hexOf raw "selection" accent;
+      red = stripHash raw.red;
+      yellow = stripHash raw.yellow;
+      green = stripHash raw.green;
+      cyan = stripHash raw.cyan;
+      blue = stripHash raw.blue;
+      magenta = stripHash raw.magenta;
+      orange = hexOf raw "orange" yellow;
+      brown = hexOf raw "brown" orange;
+      brightRed = hexOf raw "bright_red" red;
+      brightYellow = hexOf raw "bright_yellow" yellow;
+      brightGreen = hexOf raw "bright_green" green;
+      brightCyan = hexOf raw "bright_cyan" cyan;
+      brightBlue = hexOf raw "bright_blue" blue;
+      brightMagenta = hexOf raw "bright_magenta" magenta;
+    in
+    {
+      inherit
+        name
+        mode
+        accent
+        background
+        foreground
+        brightForeground
+        muted
+        selection
+        red
+        yellow
+        orange
+        green
+        cyan
+        blue
+        magenta
+        brown
+        brightRed
+        brightYellow
+        brightGreen
+        brightCyan
+        brightBlue
+        brightMagenta
+        ;
+      gtkTheme = if mode == "light" then "Adwaita" else "Adwaita-dark";
+      iconTheme = readIcon name;
+      cursor = brightForeground;
+      selectionForeground = brightForeground;
+      selectionBackground = selection;
+      darkBackground = hexOf raw "dark_background" background;
+      darkerBackground = hexOf raw "darker_background" background;
+      lighterBackground = hexOf raw "lighter_background" background;
+      darkForeground = hexOf raw "dark_foreground" muted;
+      lightForeground = hexOf raw "light_foreground" foreground;
+      # Official ANSI aliases from omarchy-theme-color.
+      color0 = background;
+      color1 = red;
+      color2 = green;
+      color3 = yellow;
+      color4 = blue;
+      color5 = magenta;
+      color6 = cyan;
+      color7 = foreground;
+      color8 = muted;
+      color9 = brightRed;
+      color10 = brightGreen;
+      color11 = brightYellow;
+      color12 = brightBlue;
+      color13 = brightMagenta;
+      color14 = brightCyan;
+      color15 = brightForeground;
+      hyprlandActiveBorder = get raw "hyprland_active_border" null;
+      hyprlandInactiveBorder = get raw "hyprland_inactive_border" null;
+    };
+in
+builtins.listToAttrs (
+  map (name: {
+    inherit name;
+    value = load name;
+  }) names
+)

@@ -14,9 +14,12 @@
   satty,
   wl-clipboard,
   procps,
+  swaybg,
+  fetchgit,
 }:
 let
   palettes = import ../../modules/shared/palettes.nix;
+  officialBackgrounds = import ./official-backgrounds.nix { inherit fetchgit; };
 
   hex = value: if lib.hasPrefix "#" value then value else "#${value}";
 
@@ -33,33 +36,53 @@ let
     name: p:
     let
       colorsToml = ''
+        mode = "${p.mode}"
+
         accent = "${hex p.accent}"
-        cursor = "${hex p.cursor}"
-        foreground = "${hex p.foreground}"
+        selection = "${hex p.selection}"
+        muted = "${hex p.muted}"
+
         background = "${hex p.background}"
-        selection_foreground = "${hex p.selectionForeground}"
-        selection_background = "${hex p.selectionBackground}"
-        color0 = "${hex p.color0}"
-        color1 = "${hex p.color1}"
-        color2 = "${hex p.color2}"
-        color3 = "${hex p.color3}"
-        color4 = "${hex p.color4}"
-        color5 = "${hex p.color5}"
-        color6 = "${hex p.color6}"
-        color7 = "${hex p.color7}"
-        color8 = "${hex p.color8}"
-        color9 = "${hex p.color9}"
-        color10 = "${hex p.color10}"
-        color11 = "${hex p.color11}"
-        color12 = "${hex p.color12}"
-        color13 = "${hex p.color13}"
-        color14 = "${hex p.color14}"
-        color15 = "${hex p.color15}"
+        dark_background = "${hex p.darkBackground}"
+        darker_background = "${hex p.darkerBackground}"
+        lighter_background = "${hex p.lighterBackground}"
+
+        foreground = "${hex p.foreground}"
+        dark_foreground = "${hex p.darkForeground}"
+        light_foreground = "${hex p.lightForeground}"
+        bright_foreground = "${hex p.brightForeground}"
+
+        red = "${hex p.red}"
+        yellow = "${hex p.yellow}"
+        orange = "${hex p.orange}"
+        green = "${hex p.green}"
+        cyan = "${hex p.cyan}"
+        blue = "${hex p.blue}"
+        magenta = "${hex p.magenta}"
+        brown = "${hex p.brown}"
+
+        bright_red = "${hex p.brightRed}"
+        bright_yellow = "${hex p.brightYellow}"
+        bright_green = "${hex p.brightGreen}"
+        bright_cyan = "${hex p.brightCyan}"
+        bright_blue = "${hex p.brightBlue}"
+        bright_magenta = "${hex p.brightMagenta}"
+      ''
+      + lib.optionalString (p.hyprlandActiveBorder != null) ''
+
+        hyprland_active_border = "${p.hyprlandActiveBorder}"
+      ''
+      + lib.optionalString (p.hyprlandInactiveBorder != null) ''
+        hyprland_inactive_border = "${p.hyprlandInactiveBorder}"
       '';
+      activeBorder =
+        if p.hyprlandActiveBorder != null then p.hyprlandActiveBorder else "rgba(${p.accent}ee)";
+      inactiveBorder =
+        if p.hyprlandInactiveBorder != null then p.hyprlandInactiveBorder else "rgba(595959aa)";
       hyprland = ''
         general {
-          col.active_border = rgba(${p.accent}ee)
-          col.inactive_border = rgba(${p.color0}aa)
+          col.active_border = ${activeBorder}
+          col.inactive_border = ${inactiveBorder}
         }
       '';
       ghostty = ''
@@ -138,6 +161,10 @@ let
       ${lib.optionalString (t.mode == "light") ''
         : > "$out/share/omarchy/themes/${t.name}/light.mode"
       ''}
+      if [ -d ${officialBackgrounds}/themes/${t.name}/backgrounds ]; then
+        cp -a ${officialBackgrounds}/themes/${t.name}/backgrounds \
+          "$out/share/omarchy/themes/${t.name}/backgrounds"
+      fi
     '') (lib.attrValues rendered)}
   '';
 
@@ -151,6 +178,7 @@ let
       gnused
       glib
       procps
+      swaybg
     ];
     text = ''
       export XDG_DATA_DIRS="${schemas}:''${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
@@ -160,6 +188,7 @@ let
       user_themes="$config_home/omarchy/themes"
       system_themes="''${OMARCHY_THEME_DIR:-${themesDrv}/share/omarchy/themes}"
       current_dir="$state_home/omarchy/current"
+      wallpaper_link="$state_home/omarchy/background"
       ghostty_theme="$config_home/ghostty/themes/omarchy"
 
       list_themes() {
@@ -198,6 +227,113 @@ let
       hex_to_rgb() {
         hex="''${1#\#}"
         printf '%d, %d, %d' "0x''${hex:0:2}" "0x''${hex:2:2}" "0x''${hex:4:2}"
+      }
+
+      is_image() {
+        case "''${1,,}" in
+          *.jpg|*.jpeg|*.png|*.gif|*.bmp|*.webp) return 0 ;;
+          *) return 1 ;;
+        esac
+      }
+
+      list_backgrounds() {
+        name="$1"
+        src="$2"
+        {
+          if [ -d "$config_home/omarchy/backgrounds/$name" ]; then
+            find -L "$config_home/omarchy/backgrounds/$name" -maxdepth 1 -type f -print
+          fi
+          if [ -d "$current_dir/backgrounds" ]; then
+            find -L "$current_dir/backgrounds" -maxdepth 1 -type f -print
+          elif [ -n "$src" ] && [ -d "$src/backgrounds" ]; then
+            find -L "$src/backgrounds" -maxdepth 1 -type f -print
+          elif [ -d "$user_themes/$name/backgrounds" ]; then
+            find -L "$user_themes/$name/backgrounds" -maxdepth 1 -type f -print
+          fi
+        } | while IFS= read -r file; do
+          if is_image "$file"; then
+            printf '%s\n' "$file"
+          fi
+        done | sort -u
+      }
+
+      current_wallpaper() {
+        if [ -e "$wallpaper_link" ]; then
+          readlink -f "$wallpaper_link" 2>/dev/null || true
+        fi
+      }
+
+      start_wallpaper() {
+        file="$1"
+        [ -n "$file" ] && [ -f "$file" ] || return 0
+        mkdir -p "$(dirname "$wallpaper_link")"
+        ln -nsf "$file" "$wallpaper_link"
+        if [ -d "$current_dir" ]; then
+          ln -nsf "$file" "$current_dir/background"
+        fi
+        if command -v systemctl >/dev/null; then
+          if systemctl --user restart omarchy-wallpaper.service >/dev/null 2>&1; then
+            return 0
+          fi
+        fi
+        if command -v swaybg >/dev/null; then
+          pkill -x swaybg >/dev/null 2>&1 || true
+          swaybg -i "$file" -m fill >/dev/null 2>&1 &
+          disown || true
+        fi
+      }
+
+      apply_theme_wallpaper() {
+        name="$1"
+        src="$2"
+        mapfile -t backgrounds < <(list_backgrounds "$name" "$src")
+        if [ "''${#backgrounds[@]}" -eq 0 ]; then
+          echo "omarchy: no wallpaper for $name (drop images in ~/.config/omarchy/themes/$name/backgrounds/ or ~/.config/omarchy/backgrounds/$name/)" >&2
+          return 0
+        fi
+        current="$(current_wallpaper)"
+        chosen="''${backgrounds[0]}"
+        if [ -n "$current" ]; then
+          for i in "''${!backgrounds[@]}"; do
+            resolved="$(readlink -f "''${backgrounds[$i]}" 2>/dev/null || true)"
+            if [ "''${backgrounds[$i]}" = "$current" ] || [ "$resolved" = "$current" ]; then
+              chosen="''${backgrounds[$i]}"
+              break
+            fi
+          done
+        fi
+        start_wallpaper "$chosen"
+      }
+
+      next_wallpaper() {
+        name=""
+        if [ -f "$current_dir/theme.name" ]; then
+          name="$(tr -d '[:space:]' < "$current_dir/theme.name")"
+        fi
+        src=""
+        if [ -n "$name" ]; then
+          src="$(resolve_theme "$name" 2>/dev/null || true)"
+        fi
+        mapfile -t backgrounds < <(list_backgrounds "$name" "$src")
+        if [ "''${#backgrounds[@]}" -eq 0 ]; then
+          echo "omarchy-theme-bg-next: no wallpapers for ''${name:-current theme}" >&2
+          echo "Drop jpg/png/webp files in ~/.config/omarchy/themes/<name>/backgrounds/ or ~/.config/omarchy/backgrounds/<name>/" >&2
+          exit 1
+        fi
+        current="$(current_wallpaper)"
+        idx=0
+        for i in "''${!backgrounds[@]}"; do
+          resolved="$(readlink -f "''${backgrounds[$i]}" 2>/dev/null || true)"
+          if [ "''${backgrounds[$i]}" = "$current" ] || [ "$resolved" = "$current" ]; then
+            idx=$((i + 1))
+            break
+          fi
+        done
+        if [ "$idx" -ge "''${#backgrounds[@]}" ]; then
+          idx=0
+        fi
+        start_wallpaper "''${backgrounds[$idx]}"
+        echo "omarchy: wallpaper ''${backgrounds[$idx]}"
       }
 
       # Built-in palettes ship hyprlock/mako/waybar snippets. User themes that
@@ -268,7 +404,8 @@ let
         gtk_theme="Adwaita-dark"
         icon_theme="Yaru-blue"
         color_scheme="prefer-dark"
-        if [ -f "$current_dir/light.mode" ]; then
+        if [ -f "$current_dir/light.mode" ] \
+          || grep -q '^mode[[:space:]]*=[[:space:]]*"light"' "$current_dir/colors.toml" 2>/dev/null; then
           gtk_theme="Adwaita"
           color_scheme="prefer-light"
         fi
@@ -293,7 +430,10 @@ let
         fi
 
         if [ -f "$current_dir/ghostty" ]; then
+          mkdir -p "$(dirname "$ghostty_theme")"
+          rm -f "$ghostty_theme"
           cp "$current_dir/ghostty" "$ghostty_theme"
+          chmod u+w "$ghostty_theme" 2>/dev/null || true
           if command -v ghostty >/dev/null; then
             ghostty +reload-config >/dev/null 2>&1 || true
           fi
@@ -316,6 +456,8 @@ let
 
         # hyprlock has no reload IPC. It sources current/hyprlock.conf the next
         # time it starts. A lock already on screen keeps its old colors.
+
+        apply_theme_wallpaper "$name" "$src"
 
         echo "omarchy: theme set to $name"
       }
@@ -350,9 +492,25 @@ let
         --next)
           next_theme
           ;;
+        --bg-next)
+          next_wallpaper
+          ;;
+        --bg-set)
+          if [ -z "''${2:-}" ]; then
+            echo "usage: omarchy-theme-set --bg-set <image>" >&2
+            exit 1
+          fi
+          if [ ! -f "$2" ]; then
+            echo "omarchy-theme-set: no such file: $2" >&2
+            exit 1
+          fi
+          start_wallpaper "$2"
+          echo "omarchy: wallpaper $2"
+          ;;
         ""|-h|--help)
           echo "usage: omarchy-theme-set <theme>" >&2
-          echo "       omarchy-theme-set --list|--next" >&2
+          echo "       omarchy-theme-set --list|--next|--bg-next" >&2
+          echo "       omarchy-theme-set --bg-set <image>" >&2
           echo "themes:" >&2
           list_themes >&2
           exit 1
@@ -377,6 +535,46 @@ let
     runtimeInputs = [ themeSet ];
     text = ''
       exec omarchy-theme-set --list
+    '';
+  };
+
+  themeBgNext = writeShellApplication {
+    name = "omarchy-theme-bg-next";
+    runtimeInputs = [ themeSet ];
+    text = ''
+      exec omarchy-theme-set --bg-next
+    '';
+  };
+
+  themeBgSet = writeShellApplication {
+    name = "omarchy-theme-bg-set";
+    runtimeInputs = [ themeSet ];
+    text = ''
+      exec omarchy-theme-set --bg-set "$@"
+    '';
+  };
+
+  wallpaper = writeShellApplication {
+    name = "omarchy-wallpaper";
+    runtimeInputs = [
+      coreutils
+      swaybg
+    ];
+    text = ''
+      link="''${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/background"
+      if [ ! -e "$link" ]; then
+        echo "omarchy-wallpaper: no background set yet" >&2
+        exit 0
+      fi
+      target="$(readlink -f "$link" || true)"
+      if [ ! -f "$target" ]; then
+        target="$link"
+      fi
+      if [ ! -f "$target" ]; then
+        echo "omarchy-wallpaper: background path is not a file" >&2
+        exit 0
+      fi
+      exec swaybg -i "$target" -m fill
     '';
   };
 
@@ -408,11 +606,14 @@ symlinkJoin {
     themeSet
     themeNext
     themeList
+    themeBgNext
+    themeBgSet
+    wallpaper
     screenshot
     themesDrv
   ];
   meta = {
-    description = "Omarchy theme switcher, theme list/next, and screenshot helper";
+    description = "Omarchy theme switcher, wallpaper helper, and screenshot helper";
     license = lib.licenses.mit;
     mainProgram = "omarchy-theme-set";
     platforms = lib.platforms.linux;
