@@ -17,6 +17,10 @@ in
       ${storage.luks.name}.device = storage.luks.device;
     };
 
+    # Snapper configs target mount points (`/`, `/home`), not Btrfs subvolume
+    # names. The Omarchy layout is `@` at `/` and `@home` at `/home` — declare
+    # those in fileSystems. disko will own creating that layout later; do not
+    # reintroduce unused rootSubvolume/homeSubvolume options until then.
     services.snapper = {
       snapshotRootOnBoot = storage.snapper.snapshotRootOnBoot;
       configs =

@@ -14,7 +14,7 @@ All four are **on by default** once you set `programs.omarchy.enable = true`. Ea
 
 | Pillar | What “done” looks like | This stub |
 | --- | --- | --- |
-| **shell** | Hyprland + Walker + Ghostty feels like Omarchy at first login | Enables `programs.hyprland` (UWSM), Ghostty, Walker, Waybar, and Elephant (Walker 2.x backend). Home Manager writes the Hyprland/Ghostty baseline and keybinds. |
+| **shell** | Hyprland + Walker + Ghostty feels like Omarchy at first login | Enables `programs.hyprland` (UWSM), Ghostty, Walker, Waybar, Elephant (Walker 2.x backend), **hyprlock + hypridle** (lock on idle), and **mako** (notifications). Home Manager writes the Hyprland/Ghostty/lock baseline and keybinds. |
 | **theme** | One command / keybind flips GTK + Hyprland + terminal + icons together | `omarchy-theme-set <name>`, `omarchy-theme-next`, `Super+Ctrl+Shift+Space`. Built-in palettes: `tokyo-night`, `catppuccin-latte`. |
 | **apps** | Browser, file manager, Neovim, screenshot + clipboard helpers | Chromium, Nautilus, Neovim, grim/slurp/satty, wl-clipboard, cliphist. |
 | **storage** | LUKS2 + Btrfs `@` / `@home` + Snapper rollback | Documents and wires Snapper; optionally opens a LUKS device you already created. **Does not reformat disks. Does not treat an unencrypted ext4 root as equivalent.** |
@@ -159,12 +159,24 @@ Drop extra theme directories in `~/.config/omarchy/themes/<name>/` (`colors.toml
 | --- | --- |
 | `Super+Return` | Ghostty |
 | `Super+Space` | Walker |
+| `Super+Ctrl+L` | hyprlock |
+| `Super+,` | Dismiss last mako notification |
+| `Super+Shift+,` | Dismiss all mako notifications |
 | `Super+B` | Chromium |
 | `Super+Shift+F` | Nautilus |
 | `Super+N` | Neovim in Ghostty |
 | `Super+Shift+S` | grim + slurp + satty |
 | `Super+V` | Walker clipboard provider |
 | `Super+Ctrl+Shift+Space` | Next theme |
+
+Idle (hypridle, seconds from idle — same numbers as Omarchy’s `shell.json`):
+
+| Seconds | Action |
+| --- | --- |
+| 150 | DPMS off (Omarchy’s screensaver slot; we do not ship `omarchy-launch-screensaver`) |
+| 300 | Lock with hyprlock |
+
+`loginctl lock-session` / suspend also lock via hypridle’s `lock_cmd`. The NixOS module installs `security.pam.services.hyprlock` so unlock works. Standalone Home Manager users must set that PAM service on the host themselves.
 
 ## Storage (not optional for parity)
 
@@ -214,7 +226,7 @@ Create the LUKS container and subvolumes yourself (Calamares, disko, or by hand)
 - Install `btrfs-progs`, `snapper`, and `cryptsetup`
 - **Warn** if `luks.device` is unset or `/` / `/home` are not Btrfs
 
-It will **not** run `cryptsetup luksFormat` or `mkfs.btrfs`. You still need a `.snapshots` subvolume on each Snapper target (Snapper’s own requirement).
+It will **not** run `cryptsetup luksFormat` or `mkfs.btrfs`. You still need a `.snapshots` subvolume on each Snapper target (Snapper’s own requirement). Snapper is pointed at the mount points `/` and `/home`, not at Btrfs subvolume names — those names (`@`, `@home`) belong in your `fileSystems` declarations. A later disko snippet will create that layout; unused `rootSubvolume` / `homeSubvolume` options are not exposed in the meantime.
 
 NixOS rollbacks via `nixos-rebuild` / generation boot entries are complementary, not a substitute for filesystem snapshots. Omarchy’s story is both: generations for the store, Snapper for the live Btrfs subvolumes.
 
@@ -229,9 +241,12 @@ Ordered the way the pillars were stubbed.
    - [x] Ghostty via nixpkgs / Home Manager `programs.ghostty`
    - [x] Walker via nixpkgs `walker` + `services.elephant`
    - [x] Waybar (Omarchy’s actual status bar; Walker is the launcher)
+   - [x] hyprlock + hypridle (lock on idle; PAM on NixOS)
+   - [x] mako notifications
    - [ ] Omarchy `omarchy-walker` branding, providers, and Walker GTK CSS
-   - [ ] hyprlock / hypridle / hyprsunset / mako / swayosd defaults
+   - [ ] hyprsunset / swayosd defaults
    - [ ] SDDM (or equivalent) session + unlock art
+   - [ ] Omarchy screensaver (`omarchy-launch-screensaver`) and idle-inhibit toggle
 
 2. **Theme**
    - [x] `omarchy-theme-set` / `--next` / `--list`
@@ -249,9 +264,9 @@ Ordered the way the pillars were stubbed.
 
 4. **Storage**
    - [x] Document LUKS + `@` / `@home` as the required layout
-   - [x] Snapper configs + boot snapshot
+   - [x] Snapper configs + boot snapshot (mount points `/` and `/home`)
    - [x] Optional `storage.luks.device` wiring
-   - [ ] disko snippet that creates the layout
+   - [ ] disko snippet that creates `@` / `@home` (layout names stay with disko, not unused module options)
    - [ ] Limine + snapper-sync boot-menu rollback
    - [ ] Initrd unlock theme (`unlock.png`)
 

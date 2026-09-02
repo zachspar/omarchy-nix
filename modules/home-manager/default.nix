@@ -11,6 +11,7 @@ in
   imports = [
     ../shared/options.nix
     ./hyprland.nix
+    ./shell.nix
     ./theme.nix
     ./terminal.nix
     ./apps.nix

@@ -7,6 +7,9 @@ let
   cfg = config.programs.omarchy;
   terminal = lib.getExe cfg.shell.terminalPackage;
   launcher = lib.getExe cfg.shell.launcherPackage;
+  lock = lib.getExe cfg.shell.lockPackage;
+  notify = lib.getExe cfg.shell.notificationPackage;
+  makoctl = lib.getExe' cfg.shell.notificationPackage "makoctl";
   browser = lib.getExe cfg.apps.browser;
   files = lib.getExe cfg.apps.fileManager;
   editor = lib.getExe cfg.apps.editor;
@@ -26,6 +29,9 @@ in
 
         exec-once = [
           "${launcher} --gapplication-service"
+          # mako has no Home Manager systemd unit; start it with the session
+          # the way Omarchy does. hypridle is started by services.hypridle.
+          "${notify}"
         ];
 
         general = {
@@ -46,6 +52,9 @@ in
         bind = [
           "SUPER, Return, exec, $terminal"
           "SUPER, Space, exec, $launcher"
+          "SUPER CTRL, L, exec, ${lock}"
+          "SUPER, COMMA, exec, ${makoctl} dismiss"
+          "SUPER SHIFT, COMMA, exec, ${makoctl} dismiss --all"
         ]
         ++ lib.optionals cfg.theme.enable [
           "SUPER CTRL SHIFT, Space, exec, omarchy-theme-next"
