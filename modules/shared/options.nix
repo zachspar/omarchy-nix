@@ -34,7 +34,8 @@ in
       enable = mkPillarEnable ''
         Shell pillar: Hyprland + Walker + Ghostty, the "feels like Omarchy"
         baseline. Also enables Waybar (Omarchy's status bar; Walker is the
-        launcher) and the Elephant backend Walker 2.x needs.
+        launcher), the Elephant backend Walker 2.x needs, hyprlock + hypridle
+        (lock on idle), and mako (notifications).
       '';
 
       withUWSM = mkOption {
@@ -59,6 +60,28 @@ in
       barPackage = mkPackageOption pkgs "waybar" {
         extraDescription = ''
           Omarchy's top bar is Waybar, not Walker. Walker is the launcher.
+        '';
+      };
+
+      lockPackage = mkPackageOption pkgs "hyprlock" {
+        extraDescription = ''
+          Screen locker. The NixOS module installs PAM (`security.pam.services.hyprlock`);
+          without that, hyprlock cannot unlock. Theme-pack art is a later milestone.
+        '';
+      };
+
+      idlePackage = mkPackageOption pkgs "hypridle" {
+        extraDescription = ''
+          Idle daemon: DPMS off at 150s (Omarchy's screensaver slot — we do not
+          ship `omarchy-launch-screensaver`), lock at 300s. Matches
+          `~/.config/omarchy/shell.json` idle.lock / idle.screensaver.
+        '';
+      };
+
+      notificationPackage = mkPackageOption pkgs "mako" {
+        extraDescription = ''
+          Notification daemon. Omarchy Quattro is moving to a native shell
+          notifier; this stub stays on mako from nixpkgs.
         '';
       };
     };
@@ -128,18 +151,6 @@ in
           default = "cryptroot";
           description = "dm-crypt mapping name for the LUKS device.";
         };
-      };
-
-      rootSubvolume = mkOption {
-        type = types.str;
-        default = "@";
-        description = "Btrfs subvolume mounted at `/`. Omarchy uses `@`.";
-      };
-
-      homeSubvolume = mkOption {
-        type = types.str;
-        default = "@home";
-        description = "Btrfs subvolume mounted at `/home`. Omarchy uses `@home`.";
       };
 
       snapper = {

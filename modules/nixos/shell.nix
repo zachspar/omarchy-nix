@@ -44,10 +44,19 @@ in
       pkgs.nerd-fonts.jetbrains-mono
     ];
 
+    # Hyprlock authenticates via PAM. The Home Manager package alone cannot
+    # unlock; this empty service is what nixpkgs programs.hyprlock installs.
+    # Do not enable programs.hyprlock here — that also starts a system
+    # hypridle unit that would race the Home Manager one.
+    security.pam.services.hyprlock = { };
+
     environment.systemPackages = [
       cfg.shell.terminalPackage
       cfg.shell.launcherPackage
       cfg.shell.barPackage
+      cfg.shell.lockPackage
+      cfg.shell.idlePackage
+      cfg.shell.notificationPackage
       pkgs.elephant
       pkgs.uwsm
     ];
