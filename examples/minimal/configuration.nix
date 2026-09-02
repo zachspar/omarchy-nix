@@ -11,6 +11,12 @@
   # Master switch. All four pillars default to on; override any of them.
   programs.omarchy.enable = true;
   # programs.omarchy.shell.enable = true;
+  # SDDM greeter + Plymouth unlock art are on with the shell pillar.
+  # Autologin stays off. FDE unlock is Plymouth / cryptsetup, not SDDM.
+  # programs.omarchy.shell.greeter.autoLogin.enable = true;
+  # programs.omarchy.shell.greeter.autoLogin.user = "alice";
+  # programs.omarchy.shell.greeter.compositor = "weston";
+  # programs.omarchy.shell.greeter.logo = ./unlock.png;
   # programs.omarchy.theme.enable = true;
   # programs.omarchy.theme.name = "tokyo-night";
   # programs.omarchy.apps.enable = true;

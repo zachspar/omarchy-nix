@@ -36,6 +36,7 @@
 
       overlays.default = final: _prev: {
         omarchy-theme-tools = final.callPackage ./pkgs/omarchy-theme-tools { };
+        omarchy-greeter = final.callPackage ./pkgs/omarchy-greeter { };
       };
 
       packages = forAllSystems (
@@ -45,6 +46,7 @@
         in
         rec {
           omarchy-theme-tools = pkgs.callPackage ./pkgs/omarchy-theme-tools { };
+          omarchy-greeter = pkgs.callPackage ./pkgs/omarchy-greeter { };
           default = omarchy-theme-tools;
         }
       );
