@@ -129,6 +129,11 @@ in
         description = ''
           Launch Hyprland through UWSM (Universal Wayland Session Manager),
           matching Omarchy. Requires `programs.hyprland.withUWSM` on NixOS.
+          SDDM's default session is `hyprland-uwsm` (not bare `hyprland`).
+          App keybinds (terminal, browser, files, editor, launcher,
+          screenshots, Walker menus) run through `uwsm-app --`. Home Manager
+          keeps `wayland.windowManager.hyprland.systemd.enable` off so UWSM
+          owns `graphical-session.target`.
         '';
       };
 

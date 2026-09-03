@@ -225,13 +225,19 @@ in
       pkgNames = map (p: p.pname or p.name or "") cfg.environment.systemPackages;
       hasPkg = needle: lib.any (n: lib.hasPrefix needle n) pkgNames;
       exec = toString (cfg.systemd.services.swayosd-libinput-backend.serviceConfig.ExecStart or "");
+      greeterCmd = cfg.services.displayManager.sddm.settings.Wayland.CompositorCommand or "";
       ok =
         cfg.programs.omarchy.shell.enable
         && hasPkg "hyprsunset"
         && hasPkg "swayosd"
         && cfg.systemd.services ? swayosd-libinput-backend
         && lib.hasInfix "swayosd-libinput-backend" exec
-        && cfg.security.pam.services ? hyprlock;
+        && cfg.security.pam.services ? hyprlock
+        && cfg.services.displayManager.defaultSession == "hyprland-uwsm"
+        && cfg.programs.hyprland.withUWSM
+        && lib.hasInfix "start-hyprland" greeterCmd
+        && lib.hasInfix "-- --config" greeterCmd
+        && !(lib.hasInfix "bin/Hyprland --config" greeterCmd);
     in
     if ok then
       pkgs.runCommand "omarchy-eval-shell-osd" { } "touch $out"
@@ -243,6 +249,8 @@ in
         has-backend=${toString (cfg.systemd.services ? swayosd-libinput-backend)}
         exec=${exec}
         pam-hyprlock=${toString (cfg.security.pam.services ? hyprlock)}
+        defaultSession=${cfg.services.displayManager.defaultSession or "MISSING"}
+        greeterCmd=${greeterCmd}
       '';
 
   eval-hm-shell-osd =
@@ -267,6 +275,7 @@ in
       profiles = cfg.services.hyprsunset.settings.profile or [ ];
       identity = lib.any (p: (p.identity or false) && (p.time or "") == "07:00") profiles;
       layers = cfg.wayland.windowManager.hyprland.settings.layerrule or [ ];
+      execOnce = cfg.wayland.windowManager.hyprland.settings.exec-once or [ ];
       ok =
         cfg.wayland.windowManager.hyprland.enable
         && cfg.wayland.windowManager.hyprland.configType == "hyprlang"
@@ -279,19 +288,21 @@ in
         && cfg.services.hyprsunset.enable
         && cfg.services.swayosd.enable
         && cfg.services.hypridle.enable
-        && lib.any (b: lib.hasInfix "SUPER, Return" b) binds
-        && lib.any (b: lib.hasInfix "SUPER, Space" b) binds
+        && lib.any (b: lib.hasInfix "SUPER, Return" b && lib.hasInfix "uwsm-app -- $terminal" b) binds
+        && lib.any (b: lib.hasInfix "SUPER, Space" b && lib.hasInfix "uwsm-app -- $launcher" b) binds
         && lib.any (b: lib.hasInfix "SUPER, W," b) binds
-        && lib.any (b: lib.hasInfix "SUPER, K," b) binds
-        && lib.any (b: lib.hasInfix "SUPER SHIFT, B," b) binds
-        && lib.any (b: lib.hasInfix "SUPER SHIFT, F," b) binds
-        && lib.any (b: lib.hasInfix "SUPER SHIFT, N," b) binds
-        && lib.any (b: lib.hasInfix "SUPER SHIFT, Return," b) binds
+        && lib.any (b: lib.hasInfix "SUPER, K," b && lib.hasInfix "uwsm-app -- omarchy-menu-keybindings" b) binds
+        && lib.any (b: lib.hasInfix "SUPER SHIFT, B," b && lib.hasInfix "uwsm-app -- $browser" b) binds
+        && lib.any (b: lib.hasInfix "SUPER SHIFT, F," b && lib.hasInfix "uwsm-app -- $fileManager" b) binds
+        && lib.any (b: lib.hasInfix "SUPER SHIFT, N," b && lib.hasInfix "uwsm-app -- $terminal -e" b) binds
+        && lib.any (b: lib.hasInfix "SUPER SHIFT, Return," b && lib.hasInfix "uwsm-app -- $browser" b) binds
+        && lib.any (b: lib.hasInfix "SUPER SHIFT, S," b && lib.hasInfix "uwsm-app -- omarchy-screenshot" b) binds
         && lib.any (b: lib.hasInfix "code:10" b) binds
         && lib.any (b: lib.hasInfix "code:19" b) binds
         && lib.any (b: lib.hasInfix "movefocus, l" b) binds
-        && lib.any (b: lib.hasInfix "omarchy-menu-keybindings" b) binds
         && lib.any (b: lib.hasInfix "omarchy-toggle-nightlight" b) binds
+        && !(lib.any (b: lib.hasInfix "uwsm-app" b && lib.hasInfix "omarchy-toggle-nightlight" b) binds)
+        && lib.any (e: lib.hasPrefix "uwsm-app -- " e) execOnce
         && lib.any (b: lib.hasInfix "XF86AudioRaiseVolume" b) bindel
         && lib.any (b: lib.hasInfix "XF86AudioPlay" b) bindl
         && lib.any (r: lib.hasInfix "match:namespace walker" r) layers
@@ -314,6 +325,7 @@ in
         hypridle=${toString cfg.services.hypridle.enable}
         binds=${toString binds}
         bindel=${toString bindel}
+        execOnce=${toString execOnce}
       '';
 
   greeter-hyprland-conf =
@@ -387,6 +399,7 @@ in
       ];
       user = host.config.home-manager.users.eval;
       binds = user.wayland.windowManager.hyprland.settings.bindd or [ ];
+      greeterCmd = host.config.services.displayManager.sddm.settings.Wayland.CompositorCommand or "";
       failed = lib.filter (a: !a.assertion) host.config.assertions;
       ok =
         user.wayland.windowManager.hyprland.enable
@@ -394,8 +407,11 @@ in
         && !user.wayland.windowManager.hyprland.systemd.enable
         && (user.xdg.configFile."hypr/hyprland.conf".force or false)
         && user.programs.waybar.systemd.enable
-        && lib.any (b: lib.hasInfix "SUPER, Return" b) binds
-        && lib.any (b: lib.hasInfix "SUPER, Space" b) binds
+        && host.config.services.displayManager.defaultSession == "hyprland-uwsm"
+        && lib.hasInfix "start-hyprland" greeterCmd
+        && lib.hasInfix "-- --config" greeterCmd
+        && lib.any (b: lib.hasInfix "SUPER, Return" b && lib.hasInfix "uwsm-app -- $terminal" b) binds
+        && lib.any (b: lib.hasInfix "SUPER, Space" b && lib.hasInfix "uwsm-app -- $launcher" b) binds
         && lib.any (b: lib.hasInfix "SUPER, W," b) binds
         && lib.any (b: lib.hasInfix "omarchy-menu-keybindings" b) binds
         && lib.any (b: lib.hasInfix "code:10" b) binds
@@ -410,5 +426,80 @@ in
         configType=${user.wayland.windowManager.hyprland.configType or "MISSING"}
         binds=${toString binds}
         failed=${toString (map (a: a.message) failed)}
+        defaultSession=${host.config.services.displayManager.defaultSession or "MISSING"}
+        greeterCmd=${greeterCmd}
+      '';
+
+  eval-hm-no-uwsm =
+    let
+      hm = home-manager.lib.homeManagerConfiguration {
+        inherit pkgs;
+        modules = [
+          self.homeManagerModules.omarchy
+          {
+            home.username = "eval";
+            home.homeDirectory = "/home/eval";
+            home.stateVersion = "25.11";
+            programs.omarchy.enable = true;
+            programs.omarchy.shell.withUWSM = false;
+            programs.omarchy.storage.enable = false;
+          }
+        ];
+      };
+      cfg = hm.config;
+      binds = cfg.wayland.windowManager.hyprland.settings.bindd or [ ];
+      execOnce = cfg.wayland.windowManager.hyprland.settings.exec-once or [ ];
+      ok =
+        cfg.wayland.windowManager.hyprland.enable
+        && cfg.wayland.windowManager.hyprland.systemd.enable
+        && !(cfg.xdg.configFile ? "uwsm/env")
+        && lib.any (b: lib.hasInfix "SUPER, Return, Terminal, exec, $terminal" b) binds
+        && lib.any (b: lib.hasInfix "SUPER, Space, Launch apps, exec, $launcher" b) binds
+        && lib.any (b: lib.hasInfix "SUPER SHIFT, B, Browser, exec, $browser" b) binds
+        && !(lib.any (b: lib.hasInfix "uwsm-app" b) binds)
+        && !(lib.any (e: lib.hasInfix "uwsm-app" e) execOnce);
+    in
+    if ok then
+      pkgs.runCommand "omarchy-eval-hm-no-uwsm" { } "touch $out"
+    else
+      throw ''
+        withUWSM = false must keep bare exec binds and HM hyprland systemd
+        systemd=${toString cfg.wayland.windowManager.hyprland.systemd.enable}
+        binds=${toString binds}
+        execOnce=${toString execOnce}
+      '';
+
+  eval-shell-no-uwsm =
+    let
+      host = mkHost [
+        self.nixosModules.omarchy
+        {
+          programs.omarchy.enable = true;
+          programs.omarchy.shell.withUWSM = false;
+          programs.omarchy.theme.enable = false;
+          programs.omarchy.apps.enable = false;
+          programs.omarchy.storage.enable = false;
+          fileSystems."/" = {
+            device = "/dev/vda";
+            fsType = "ext4";
+          };
+        }
+      ];
+      cfg = host.config;
+      greeterCmd = cfg.services.displayManager.sddm.settings.Wayland.CompositorCommand or "";
+      ok =
+        cfg.services.displayManager.defaultSession == "hyprland"
+        && !cfg.programs.hyprland.withUWSM
+        && lib.hasInfix "start-hyprland" greeterCmd
+        && lib.hasInfix "-- --config" greeterCmd;
+    in
+    if ok then
+      pkgs.runCommand "omarchy-eval-shell-no-uwsm" { } "touch $out"
+    else
+      throw ''
+        withUWSM = false must default SDDM to bare hyprland; greeter still uses start-hyprland
+        defaultSession=${cfg.services.displayManager.defaultSession or "MISSING"}
+        withUWSM=${toString cfg.programs.hyprland.withUWSM}
+        greeterCmd=${greeterCmd}
       '';
 }
