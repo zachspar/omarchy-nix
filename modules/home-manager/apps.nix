@@ -30,6 +30,11 @@ in
       createDirectories = true;
     };
 
+    # Plasma / xdg-user-dirs already wrote these on a first login. Without
+    # force, Home Manager aborts and never writes hyprland.conf / Waybar.
+    xdg.configFile."user-dirs.dirs".force = true;
+    xdg.configFile."user-dirs.conf".force = true;
+
     # Storage (LUKS / Btrfs / Snapper) is implemented only on the NixOS
     # module. The option is still declared here so the four-pillar shape
     # matches; flipping it in Home Manager is a no-op.

@@ -276,13 +276,32 @@ in
       identity = lib.any (p: (p.identity or false) && (p.time or "") == "07:00") profiles;
       layers = cfg.wayland.windowManager.hyprland.settings.layerrule or [ ];
       execOnce = cfg.wayland.windowManager.hyprland.settings.exec-once or [ ];
+      waybarBars =
+        if builtins.isList cfg.programs.waybar.settings then
+          cfg.programs.waybar.settings
+        else
+          lib.attrValues cfg.programs.waybar.settings;
+      waybar = builtins.head waybarBars;
       ok =
         cfg.wayland.windowManager.hyprland.enable
         && cfg.wayland.windowManager.hyprland.configType == "hyprlang"
         && !cfg.wayland.windowManager.hyprland.systemd.enable
         && (cfg.xdg.configFile."hypr/hyprland.conf".force or false)
+        && cfg.home.activation ? omarchyRemoveHyprlandLua
+        && cfg.gtk.gtk2.force
+        && (cfg.xdg.configFile."gtk-3.0/settings.ini".force or false)
+        && (cfg.xdg.configFile."gtk-4.0/settings.ini".force or false)
+        && (cfg.xdg.configFile."user-dirs.dirs".force or false)
         && cfg.programs.waybar.enable
         && cfg.programs.waybar.systemd.enable
+        && builtins.elem "hyprland/workspaces" waybar.modules-left
+        && builtins.elem "clock" waybar.modules-center
+        && builtins.elem "network" waybar.modules-right
+        && builtins.elem "bluetooth" waybar.modules-right
+        && builtins.elem "pulseaudio" waybar.modules-right
+        && builtins.elem "battery" waybar.modules-right
+        && waybar ? "hyprland/workspaces"
+        && waybar.clock ? calendar
         && cfg.xdg.configFile ? "uwsm/env"
         && identity
         && cfg.services.hyprsunset.enable
@@ -322,6 +341,10 @@ in
         hyprland=${toString cfg.wayland.windowManager.hyprland.enable}
         configType=${cfg.wayland.windowManager.hyprland.configType or "MISSING"}
         force-conf=${toString (cfg.xdg.configFile."hypr/hyprland.conf".force or false)}
+        gtk2-force=${toString cfg.gtk.gtk2.force}
+        waybar-left=${toString (waybar.modules-left or [ ])}
+        waybar-center=${toString (waybar.modules-center or [ ])}
+        waybar-right=${toString (waybar.modules-right or [ ])}
         waybar-systemd=${toString cfg.programs.waybar.systemd.enable}
         hyprsunset=${toString cfg.services.hyprsunset.enable}
         identity=${toString identity}
@@ -405,12 +428,26 @@ in
       binds = user.wayland.windowManager.hyprland.settings.bindd or [ ];
       greeterCmd = host.config.services.displayManager.sddm.settings.Wayland.CompositorCommand or "";
       failed = lib.filter (a: !a.assertion) host.config.assertions;
+      waybarBars =
+        if builtins.isList user.programs.waybar.settings then
+          user.programs.waybar.settings
+        else
+          lib.attrValues user.programs.waybar.settings;
+      waybar = builtins.head waybarBars;
       ok =
         user.wayland.windowManager.hyprland.enable
         && user.wayland.windowManager.hyprland.configType == "hyprlang"
         && !user.wayland.windowManager.hyprland.systemd.enable
         && (user.xdg.configFile."hypr/hyprland.conf".force or false)
+        && user.home.activation ? omarchyRemoveHyprlandLua
+        && host.config.home-manager.backupFileExtension == "bak"
+        && host.config.hardware.bluetooth.enable
+        && host.config.services.blueman.enable
         && user.programs.waybar.systemd.enable
+        && builtins.elem "hyprland/workspaces" waybar.modules-left
+        && builtins.elem "clock" waybar.modules-center
+        && builtins.elem "network" waybar.modules-right
+        && builtins.elem "bluetooth" waybar.modules-right
         && host.config.services.displayManager.defaultSession == "hyprland-uwsm"
         && lib.hasInfix "start-hyprland" greeterCmd
         && lib.hasInfix "-- --config" greeterCmd
@@ -428,6 +465,9 @@ in
         NixOS + Home Manager composition must manage Hyprland via sharedModules
         hyprland=${toString user.wayland.windowManager.hyprland.enable}
         configType=${user.wayland.windowManager.hyprland.configType or "MISSING"}
+        backup=${host.config.home-manager.backupFileExtension or "MISSING"}
+        bluetooth=${toString host.config.hardware.bluetooth.enable}
+        waybar-left=${toString (waybar.modules-left or [ ])}
         binds=${toString binds}
         failed=${toString (map (a: a.message) failed)}
         defaultSession=${host.config.services.displayManager.defaultSession or "MISSING"}

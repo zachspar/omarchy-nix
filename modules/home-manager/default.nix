@@ -11,6 +11,7 @@ in
   imports = [
     ../shared/options.nix
     ./hyprland.nix
+    ./waybar.nix
     ./shell.nix
     ./walker.nix
     ./theme.nix
