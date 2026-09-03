@@ -307,6 +307,14 @@ in
         && cfg.services.hyprsunset.enable
         && cfg.services.swayosd.enable
         && cfg.services.hypridle.enable
+        && cfg.systemd.user.services.omarchy-theme-apply.Service.Type == "oneshot"
+        && cfg.systemd.user.services.omarchy-theme-apply.Service.RemainAfterExit
+        && !(lib.elem "omarchy-theme-apply.service" (
+          cfg.systemd.user.services.omarchy-walker.Unit.After or [ ]
+        ))
+        && lib.any (e: e == "OMARCHY_SKIP_UNIT_RESTART=1") (
+          lib.toList (cfg.systemd.user.services.omarchy-theme-apply.Service.Environment or [ ])
+        )
         && lib.any (b: lib.hasInfix "SUPER, Return" b && lib.hasInfix "uwsm-app -- $terminal" b) binds
         && lib.any (b: lib.hasInfix "SUPER, Space" b && lib.hasInfix "uwsm-app -- $launcher" b) binds
         && lib.any (b: lib.hasInfix "SUPER, W," b) binds

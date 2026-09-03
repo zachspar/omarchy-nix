@@ -91,8 +91,7 @@ in
             After = [
               "graphical-session.target"
               "omarchy-elephant.service"
-            ]
-            ++ lib.optional cfg.theme.enable "omarchy-theme-apply.service";
+            ];
             Requires = [ "omarchy-elephant.service" ];
           };
           Service = {

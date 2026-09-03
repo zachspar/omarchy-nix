@@ -369,12 +369,15 @@ let
     name = "omarchy-restart-walker";
     runtimeInputs = [ procps ];
     text = ''
+      if [ "''${OMARCHY_SKIP_UNIT_RESTART:-}" = 1 ]; then
+        exit 0
+      fi
       restarted=0
       if command -v systemctl >/dev/null; then
-        if systemctl --user restart omarchy-elephant.service >/dev/null 2>&1; then
+        if systemctl --user try-restart --no-block omarchy-elephant.service >/dev/null 2>&1; then
           restarted=1
         fi
-        if systemctl --user restart omarchy-walker.service >/dev/null 2>&1; then
+        if systemctl --user try-restart --no-block omarchy-walker.service >/dev/null 2>&1; then
           restarted=1
         fi
       fi
@@ -506,8 +509,11 @@ let
         if [ -d "$current_dir" ]; then
           ln -nsf "$file" "$current_dir/background"
         fi
+        if [ "''${OMARCHY_SKIP_UNIT_RESTART:-}" = 1 ]; then
+          return 0
+        fi
         if command -v systemctl >/dev/null; then
-          if systemctl --user restart omarchy-wallpaper.service >/dev/null 2>&1; then
+          if systemctl --user try-restart --no-block omarchy-wallpaper.service >/dev/null 2>&1; then
             return 0
           fi
         fi
@@ -1095,14 +1101,17 @@ let
     name = "omarchy-restart-swayosd";
     runtimeInputs = [ procps ];
     text = ''
+      if [ "''${OMARCHY_SKIP_UNIT_RESTART:-}" = 1 ]; then
+        exit 0
+      fi
       restarted=0
       if command -v systemctl >/dev/null; then
         systemctl --user daemon-reload >/dev/null 2>&1 || true
         # Home Manager names the unit swayosd.service; Omarchy uses
         # swayosd-server.service. Try both, then fall back to pkill.
-        if systemctl --user restart swayosd.service >/dev/null 2>&1; then
+        if systemctl --user try-restart --no-block swayosd.service >/dev/null 2>&1; then
           restarted=1
-        elif systemctl --user restart swayosd-server.service >/dev/null 2>&1; then
+        elif systemctl --user try-restart --no-block swayosd-server.service >/dev/null 2>&1; then
           restarted=1
         fi
       fi

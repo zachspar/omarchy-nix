@@ -81,6 +81,14 @@ in
           };
           Service = {
             Type = "oneshot";
+            RemainAfterExit = true;
+            TimeoutStartSec = "20s";
+            # theme-set restarts walker/wallpaper/swayosd. Those units After
+            # this oneshot (and sd-switch starts them in the same transaction
+            # as nixos-rebuild). A blocking restart deadlocks
+            # sysinit-reactivation.target. Write files here; let systemd start
+            # the daemons. Interactive `omarchy-theme-set` still restarts.
+            Environment = [ "OMARCHY_SKIP_UNIT_RESTART=1" ];
             ExecStart = "${lib.getExe' themeTools "omarchy-theme-set"} ${cfg.theme.name}";
           };
           Install.WantedBy = [ "graphical-session.target" ];
