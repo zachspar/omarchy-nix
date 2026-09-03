@@ -161,34 +161,10 @@ let
     [General]
   '';
 
-  # Same minimal compositor config Omarchy drops at /usr/share/sddm/hyprland.conf.
-  hyprlandConf = writeText "hyprland.conf" ''
-    # Minimal Hyprland config for the SDDM Wayland greeter.
-    # SDDM starts the greeter itself after the compositor is ready.
-    misc {
-      disable_hyprland_logo = true
-      disable_splash_rendering = true
-      force_default_wallpaper = 0
-    }
-
-    animations {
-      enabled = false
-    }
-
-    decoration {
-      rounding = 0
-      blur {
-        enabled = false
-      }
-    }
-
-    windowrule = float, class:^(sddm-greeter)$
-    windowrule = pin, class:^(sddm-greeter)$
-    windowrule = stayfocused, class:^(sddm-greeter)$
-    windowrule = noanim, class:^(sddm-greeter)$
-    windowrule = noborder, class:^(sddm-greeter)$
-    windowrule = noshadow, class:^(sddm-greeter)$
-  '';
+  # Same file as basecamp/omarchy default/sddm/hyprland.conf (master):
+  # misc + animations only. Do not invent windowrules — they are not
+  # upstream and the old syntax is a parse error on Hyprland 0.53+.
+  hyprlandConf = ./hyprland.conf;
 
   logoArg = if logo == null then "" else logo;
   dejavuBold = "${dejavu_fonts}/share/fonts/truetype/DejaVuSans-Bold.ttf";
