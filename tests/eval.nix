@@ -261,7 +261,7 @@ in
         ];
       };
       cfg = hm.config;
-      binds = cfg.wayland.windowManager.hyprland.settings.bind or [ ];
+      binds = cfg.wayland.windowManager.hyprland.settings.bindd or [ ];
       bindel = cfg.wayland.windowManager.hyprland.settings.bindel or [ ];
       bindl = cfg.wayland.windowManager.hyprland.settings.bindl or [ ];
       profiles = cfg.services.hyprsunset.settings.profile or [ ];
@@ -281,6 +281,16 @@ in
         && cfg.services.hypridle.enable
         && lib.any (b: lib.hasInfix "SUPER, Return" b) binds
         && lib.any (b: lib.hasInfix "SUPER, Space" b) binds
+        && lib.any (b: lib.hasInfix "SUPER, W," b) binds
+        && lib.any (b: lib.hasInfix "SUPER, K," b) binds
+        && lib.any (b: lib.hasInfix "SUPER SHIFT, B," b) binds
+        && lib.any (b: lib.hasInfix "SUPER SHIFT, F," b) binds
+        && lib.any (b: lib.hasInfix "SUPER SHIFT, N," b) binds
+        && lib.any (b: lib.hasInfix "SUPER SHIFT, Return," b) binds
+        && lib.any (b: lib.hasInfix "code:10" b) binds
+        && lib.any (b: lib.hasInfix "code:19" b) binds
+        && lib.any (b: lib.hasInfix "movefocus, l" b) binds
+        && lib.any (b: lib.hasInfix "omarchy-menu-keybindings" b) binds
         && lib.any (b: lib.hasInfix "omarchy-toggle-nightlight" b) binds
         && lib.any (b: lib.hasInfix "XF86AudioRaiseVolume" b) bindel
         && lib.any (b: lib.hasInfix "XF86AudioPlay" b) bindl
@@ -310,24 +320,18 @@ in
     let
       conf = builtins.readFile ../pkgs/omarchy-greeter/hyprland.conf;
       ok =
-        lib.hasInfix "float on" conf
-        && lib.hasInfix "pin on" conf
-        && lib.hasInfix "stay_focused on" conf
-        && lib.hasInfix "no_anim on" conf
-        && lib.hasInfix "border_size 0" conf
-        && lib.hasInfix "no_shadow on" conf
-        && lib.hasInfix "match:class" conf
-        && !(lib.hasInfix "windowrule = float," conf)
-        && !(lib.hasInfix "windowrule = pin," conf)
-        && !(lib.hasInfix "stayfocused" conf)
-        && !(lib.hasInfix "noborder" conf)
-        && !(lib.hasInfix "noshadow" conf);
+        lib.hasInfix "disable_hyprland_logo = true" conf
+        && lib.hasInfix "disable_splash_rendering = true" conf
+        && lib.hasInfix "force_default_wallpaper = 0" conf
+        && lib.hasInfix "enabled = false" conf
+        && !(lib.hasInfix "windowrule" conf)
+        && !(lib.hasInfix "decoration" conf);
     in
     if ok then
       pkgs.runCommand "omarchy-greeter-hyprland-conf" { } "touch $out"
     else
       throw ''
-        SDDM greeter hyprland.conf must use Hyprland 0.53+ windowrule syntax
+        SDDM greeter hyprland.conf must match upstream (misc + animations only)
         conf=${conf}
       '';
 
@@ -382,7 +386,7 @@ in
         }
       ];
       user = host.config.home-manager.users.eval;
-      binds = user.wayland.windowManager.hyprland.settings.bind or [ ];
+      binds = user.wayland.windowManager.hyprland.settings.bindd or [ ];
       failed = lib.filter (a: !a.assertion) host.config.assertions;
       ok =
         user.wayland.windowManager.hyprland.enable
@@ -392,6 +396,9 @@ in
         && user.programs.waybar.systemd.enable
         && lib.any (b: lib.hasInfix "SUPER, Return" b) binds
         && lib.any (b: lib.hasInfix "SUPER, Space" b) binds
+        && lib.any (b: lib.hasInfix "SUPER, W," b) binds
+        && lib.any (b: lib.hasInfix "omarchy-menu-keybindings" b) binds
+        && lib.any (b: lib.hasInfix "code:10" b) binds
         && failed == [ ];
     in
     if ok then

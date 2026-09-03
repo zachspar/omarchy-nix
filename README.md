@@ -291,20 +291,31 @@ chromium --refresh-platform-policy --no-startup-window
 | Chord | Action |
 | --- | --- |
 | `Super+Return` | Ghostty |
+| `Super+Shift+Return` / `Super+Shift+B` | Chromium |
+| `Super+Shift+Alt+B` | Chromium private (`--incognito`) |
+| `Super+Shift+F` | Nautilus |
+| `Super+Shift+N` | Neovim in Ghostty |
 | `Super+Space` | Walker |
+| `Super+K` | Keybindings menu (`omarchy-menu-keybindings` → Walker) |
+| `Super+W` | Close window |
+| `Super+F` | Fullscreen |
+| `Super+T` | Toggle floating |
+| `Super+arrows` | Move focus |
+| `Super+1`…`Super+0` | Workspaces 1–10 (`code:10`–`19`) |
+| `Super+Shift+1`…`0` | Move window to workspace |
 | `Super+Ctrl+E` | Walker symbols (emoji) |
 | `Super+Ctrl+L` | hyprlock |
 | `Super+Ctrl+N` | Toggle night light (hyprsunset 4000K / 6000K) |
 | `XF86Audio*` / `XF86MonBrightness*` | Volume / brightness via swayosd (works on the lock screen) |
 | `Super+,` | Dismiss last mako notification |
 | `Super+Shift+,` | Dismiss all mako notifications |
-| `Super+B` | Chromium |
-| `Super+Shift+F` | Nautilus |
-| `Super+N` | Neovim in Ghostty |
-| `Super+Shift+S` | grim + slurp + satty |
-| `Super+V` | Walker clipboard provider |
+| `Super+Shift+S` / `Print` | grim + slurp + satty |
+| `Super+C` / `V` / `X` | Copy / paste / cut (sendshortcut) |
+| `Super+Ctrl+V` | Walker clipboard provider |
 | `Super+Ctrl+Space` | Wallpaper picker (Walker) |
 | `Super+Ctrl+Shift+Space` | Theme picker (Walker) |
+
+App chords are Omarchy’s `plain-bindings.conf` (Shift variants). Super+B / Super+N / Super+F are **not** apps — Super+F is fullscreen (`tiling-v2.conf`). Not ported: `omarchy-menu`, window-pop, lid/monitor helpers, dictation, and the rest of the utilities that are not in this flake.
 
 Walker is nixpkgs `walker` + `elephant`, not a private `omarchy-walker` binary. Home Manager writes Omarchy’s launcher stub:
 
@@ -359,7 +370,7 @@ Drop your own unlock art:
 
 If a pack has no `unlock.png` and you do not set `logo`, the package uses Omarchy’s default `logo.png`, then a generated wordmark stub so the screen still looks intentional.
 
-The greeter compositor defaults to Hyprland with Omarchy’s tiny `/usr/share/sddm/hyprland.conf`. Window rules use Hyprland 0.53+ syntax (`float on`, `match:class`) — the old `windowrule = float, class:^(sddm-greeter)$` form is a parse error on nixos-unstable. nixpkgs first-class supports weston (and kwin) as the SDDM Wayland compositor; Hyprland is best-effort. If the greeter is black or crashes:
+The greeter compositor defaults to Hyprland with the same tiny config Omarchy ships at `default/sddm/hyprland.conf` (`misc` + `animations` only). We do not add windowrules — they are not upstream, and the old syntax is a parse error on Hyprland 0.53+. Still hyprlang, not Lua. nixpkgs first-class supports weston (and kwin) as the SDDM Wayland compositor; Hyprland is best-effort. If the greeter is black or crashes:
 
 ```nix
 {
@@ -570,7 +581,7 @@ Ordered the way the pillars were stubbed.
 | `nixosModules.disko` | nix-community/disko — required only for `storage.disko.enable` |
 | `lib.mkOmarchyDisko` | Pure `disko.devices` attrset for the Omarchy layout |
 | `homeManagerModules.default` / `homeManagerModules.omarchy` | User Hyprland / Ghostty / theme stubs |
-| `packages.<system>.omarchy-theme-tools` | Theme CLI + Walker launch/restart + wallpaper helper + screenshot helper + nightlight/OSD helpers + official palettes |
+| `packages.<system>.omarchy-theme-tools` | Theme CLI + Walker launch/restart + wallpaper helper + screenshot helper + keybinding menu + nightlight/OSD helpers + official palettes |
 | `packages.<system>.omarchy-greeter` | SDDM theme + Plymouth unlock theme (official `unlock.png`, recolored chrome) |
 | `packages.<system>.omarchy-limine-snapper` | `omarchy-snapshot` / `omarchy-limine-snapper` — Limine `/Snapshots` sync and `@` restore |
 | `overlays.default` | Exposes `omarchy-theme-tools`, `omarchy-greeter`, and `omarchy-limine-snapper` |

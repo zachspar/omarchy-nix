@@ -1112,6 +1112,104 @@ let
     '';
   };
 
+  # Super+K. Same idea as basecamp/omarchy bin/omarchy-menu-keybindings:
+  # parse `hyprctl binds` (plain text — Hyprland 0.56 JSON is broken) and
+  # open Walker as a dmenu. Keycode → symbol uses a small map (1–0, minus)
+  # instead of xkbcli so we do not pull libxkbcommon into this package.
+  menuKeybindings = writeShellApplication {
+    name = "omarchy-menu-keybindings";
+    runtimeInputs = [
+      walker
+      jq
+      gnugrep
+    ];
+    text = ''
+      map_code() {
+        sed \
+          -e 's/code:10/1/g' \
+          -e 's/code:11/2/g' \
+          -e 's/code:12/3/g' \
+          -e 's/code:13/4/g' \
+          -e 's/code:14/5/g' \
+          -e 's/code:15/6/g' \
+          -e 's/code:16/7/g' \
+          -e 's/code:17/8/g' \
+          -e 's/code:18/9/g' \
+          -e 's/code:19/0/g' \
+          -e 's/code:20/-/g' \
+          -e 's/code:21/=/g' \
+          -e 's/mouse:272/LEFT MOUSE/g' \
+          -e 's/mouse:273/RIGHT MOUSE/g'
+      }
+
+      dynamic_bindings() {
+        hyprctl binds | awk '
+          function emit() {
+            if (!seen) return
+            seen = 0
+            key = f["key"]
+            if (key == "" && f["keycode"] != "0") key = "code:" f["keycode"]
+            arg = f["arg"]
+            modifiers = (f["modmask"] in mod_text) ? mod_text[f["modmask"]] : f["modmask"]
+            print modifiers "," key "," f["description"] "," f["dispatcher"] "," arg
+          }
+          BEGIN {
+            split("0=|1=SHIFT|4=CTRL|5=SHIFT CTRL|8=ALT|9=SHIFT ALT|12=CTRL ALT|13=SHIFT CTRL ALT|64=SUPER|65=SUPER SHIFT|68=SUPER CTRL|69=SUPER SHIFT CTRL|72=SUPER ALT|73=SUPER SHIFT ALT|76=SUPER CTRL ALT|77=SUPER SHIFT CTRL ALT", pairs, "|")
+            for (i in pairs) {
+              separator = index(pairs[i], "=")
+              mod_text[substr(pairs[i], 1, separator - 1)] = substr(pairs[i], separator + 1)
+            }
+          }
+          /^bind/ { emit(); seen = 1; delete f; next }
+          seen && match($0, /^\t[a-z]+: /) { f[substr($0, 2, RLENGTH - 3)] = substr($0, RLENGTH + 1) }
+          END { emit() }
+        '
+      }
+
+      parse_bindings() {
+        awk -F, '
+          {
+            key_combo = $1 " + " $2
+            gsub(/^[ \t]*\+?[ \t]*/, "", key_combo)
+            gsub(/[ \t]+$/, "", key_combo)
+            action = $3
+            if (action == "") {
+              for (i = 4; i <= NF; i++) {
+                action = action $i (i < NF ? "," : "")
+              }
+              sub(/,$/, "", action)
+              gsub(/(^|,)[[:space:]]*exec[[:space:]]*,?/, "", action)
+              gsub(/^[ \t]+|[ \t]+$/, "", action)
+            }
+            if (action != "") {
+              printf "%-35s → %s\n", key_combo, action
+            }
+          }
+        '
+      }
+
+      output_keybindings() {
+        dynamic_bindings | sort -u | map_code | parse_bindings
+      }
+
+      if [ "''${1:-}" = "--print" ] || [ "''${1:-}" = "-p" ]; then
+        output_keybindings
+        exit 0
+      fi
+
+      menu_height=400
+      if command -v hyprctl >/dev/null; then
+        monitor_height="$(hyprctl monitors -j 2>/dev/null | jq -r '.[] | select(.focused == true) | .height' || true)"
+        if [ -n "$monitor_height" ] && [ "$monitor_height" != "null" ]; then
+          menu_height="$((monitor_height * 40 / 100))"
+        fi
+      fi
+
+      output_keybindings |
+        env GSK_RENDERER=cairo walker --dmenu -p Keybindings --width 800 --height "$menu_height"
+    '';
+  };
+
   # Matches basecamp/omarchy bin/omarchy-toggle-nightlight (4000K / 6000K).
   # Manual text says 6500K; the shipped script is 6000K. We start the
   # Home Manager hyprsunset user unit instead of uwsm-app.
@@ -1168,10 +1266,11 @@ symlinkJoin {
     swayosdClient
     restartSwayosd
     toggleNightlight
+    menuKeybindings
     themesDrv
   ];
   meta = {
-    description = "Omarchy theme switcher, Walker helpers, wallpaper helper, screenshot helper, and nightlight/OSD helpers";
+    description = "Omarchy theme switcher, Walker helpers, wallpaper helper, screenshot helper, keybinding menu, and nightlight/OSD helpers";
     license = lib.licenses.mit;
     mainProgram = "omarchy-theme-set";
     platforms = lib.platforms.linux;

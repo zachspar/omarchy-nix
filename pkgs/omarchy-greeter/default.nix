@@ -161,8 +161,9 @@ let
     [General]
   '';
 
-  # Same minimal compositor config Omarchy drops at /usr/share/sddm/hyprland.conf.
-  # Hyprland 0.53+ rules live in ./hyprland.conf (match: + on/off values).
+  # Same file as basecamp/omarchy default/sddm/hyprland.conf (master):
+  # misc + animations only. Do not invent windowrules — they are not
+  # upstream and the old syntax is a parse error on Hyprland 0.53+.
   hyprlandConf = ./hyprland.conf;
 
   logoArg = if logo == null then "" else logo;
