@@ -183,7 +183,9 @@ in
               Theme.Current = "omarchy";
             }
             (lib.mkIf (cfg.shell.greeter.compositor == "hyprland") {
-              Wayland.CompositorCommand = "${lib.getExe' config.programs.hyprland.package "Hyprland"} --config ${greeter}/share/sddm/hyprland.conf";
+              # Omarchy / Hyprland: start-hyprland, not raw Hyprland. Same
+              # greeter conf. `--` separates wrapper args from compositor args.
+              Wayland.CompositorCommand = "${lib.getExe' config.programs.hyprland.package "start-hyprland"} -- --config ${greeter}/share/sddm/hyprland.conf";
             })
           ];
         };

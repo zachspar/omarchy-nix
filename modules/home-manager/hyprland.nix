@@ -1,5 +1,6 @@
 {
   lib,
+  pkgs,
   config,
   ...
 }:
@@ -14,6 +15,11 @@ let
   browser = lib.getExe cfg.apps.browser;
   files = lib.getExe cfg.apps.fileManager;
   editor = lib.getExe cfg.apps.editor;
+  # Bare `exec` under hyprland-uwsm is often a silent no-op. Omarchy wraps
+  # every user-facing launch with uwsm-app so the app gets a systemd scope.
+  # Session helpers that talk to an already-running daemon (hyprlock, makoctl,
+  # hyprsunset toggle, swayosd-client) stay unwrapped.
+  app = cmd: if cfg.shell.withUWSM then "uwsm-app -- ${cmd}" else cmd;
   # Hyprland bindd: "MODS, KEY, Description, dispatcher, args"
   workspaces = lib.genList (i: i + 1) 10;
   workspaceKey = n: "code:${toString (9 + n)}";
@@ -58,9 +64,10 @@ in
         exec-once = [
           # Walker + Elephant are systemd user units (see walker.nix).
           # mako has no Home Manager systemd unit; start it with the session
-          # the way Omarchy does. hypridle, hyprsunset, and swayosd are
+          # the way Omarchy does. Under UWSM that means uwsm-app so the
+          # daemon gets a scope. hypridle, hyprsunset, and swayosd are
           # started by their user units — do not also exec-once them.
-          "${notify}"
+          (app notify)
         ];
 
         # default/hypr/envs.conf (subset). NIXOS_OZONE_WL is set on NixOS.
@@ -158,10 +165,10 @@ in
         # App chords are default/hypr/plain-bindings.conf: Shift variants so
         # they do not collide with tiling-v2 (Super+F is fullscreen).
         bindd = [
-          "SUPER, Return, Terminal, exec, $terminal"
-          "SUPER, Space, Launch apps, exec, $launcher"
-          "SUPER CTRL, E, Emoji picker, exec, $launcher -m symbols"
-          "SUPER, K, Show key bindings, exec, omarchy-menu-keybindings"
+          "SUPER, Return, Terminal, exec, ${app "$terminal"}"
+          "SUPER, Space, Launch apps, exec, ${app "$launcher"}"
+          "SUPER CTRL, E, Emoji picker, exec, ${app "$launcher -m symbols"}"
+          "SUPER, K, Show key bindings, exec, ${app "omarchy-menu-keybindings"}"
           "SUPER CTRL, L, Lock system, exec, ${lock}"
           "SUPER CTRL, N, Toggle nightlight, exec, omarchy-toggle-nightlight"
           "SUPER, COMMA, Dismiss last notification, exec, ${makoctl} dismiss"
@@ -217,22 +224,22 @@ in
           "SUPER SHIFT ALT, ${workspaceKey n}, Move window silently to workspace ${toString n}, movetoworkspacesilent, ${toString n}"
         ]) workspaces
         ++ lib.optionals cfg.theme.enable [
-          "SUPER CTRL SHIFT, Space, Theme menu, exec, $launcher -m menus:omarchythemes --width 800 --minheight 400"
-          "SUPER CTRL, Space, Theme background menu, exec, $launcher -m menus:omarchyBackgroundSelector --width 800 --minheight 400"
+          "SUPER CTRL SHIFT, Space, Theme menu, exec, ${app "$launcher -m menus:omarchythemes --width 800 --minheight 400"}"
+          "SUPER CTRL, Space, Theme background menu, exec, ${app "$launcher -m menus:omarchyBackgroundSelector --width 800 --minheight 400"}"
         ]
         ++ lib.optionals cfg.apps.enable [
-          "SUPER SHIFT, Return, Browser, exec, $browser"
-          "SUPER SHIFT, B, Browser, exec, $browser"
-          "SUPER SHIFT ALT, B, Browser (private), exec, $browser --incognito"
-          "SUPER SHIFT, F, File manager, exec, $fileManager"
-          "SUPER SHIFT, N, Editor, exec, $terminal -e ${editor}"
-          "SUPER SHIFT, S, Screenshot, exec, omarchy-screenshot"
-          ", PRINT, Screenshot, exec, omarchy-screenshot"
+          "SUPER SHIFT, Return, Browser, exec, ${app "$browser"}"
+          "SUPER SHIFT, B, Browser, exec, ${app "$browser"}"
+          "SUPER SHIFT ALT, B, Browser (private), exec, ${app "$browser --incognito"}"
+          "SUPER SHIFT, F, File manager, exec, ${app "$fileManager"}"
+          "SUPER SHIFT, N, Editor, exec, ${app "$terminal -e ${editor}"}"
+          "SUPER SHIFT, S, Screenshot, exec, ${app "omarchy-screenshot"}"
+          ", PRINT, Screenshot, exec, ${app "omarchy-screenshot"}"
           # default/hypr/bindings/clipboard.conf
           "SUPER, C, Universal copy, sendshortcut, CTRL, Insert, activewindow"
           "SUPER, V, Universal paste, sendshortcut, SHIFT, Insert, activewindow"
           "SUPER, X, Universal cut, sendshortcut, CTRL, X, activewindow"
-          "SUPER CTRL, V, Clipboard manager, exec, $launcher -m clipboard"
+          "SUPER CTRL, V, Clipboard manager, exec, ${app "$launcher -m clipboard"}"
         ];
 
         bindm = [
@@ -281,6 +288,10 @@ in
         rm -f "$lua"
       fi
     '';
+
+    # uwsm-app must be on PATH for Super+Return etc. NixOS already installs
+    # pkgs.uwsm; this covers standalone Home Manager.
+    home.packages = lib.optionals cfg.shell.withUWSM [ pkgs.uwsm ];
 
     # UWSM does not read home.sessionVariables. Point it at HM's file so
     # OMARCHY_THEME / NIXOS_OZONE_WL land in the compositor session.
