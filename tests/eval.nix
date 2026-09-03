@@ -291,12 +291,16 @@ in
         && lib.any (b: lib.hasInfix "SUPER, Return" b && lib.hasInfix "uwsm-app -- $terminal" b) binds
         && lib.any (b: lib.hasInfix "SUPER, Space" b && lib.hasInfix "uwsm-app -- $launcher" b) binds
         && lib.any (b: lib.hasInfix "SUPER, W," b) binds
-        && lib.any (b: lib.hasInfix "SUPER, K," b && lib.hasInfix "uwsm-app -- omarchy-menu-keybindings" b) binds
+        && lib.any (
+          b: lib.hasInfix "SUPER, K," b && lib.hasInfix "uwsm-app -- omarchy-menu-keybindings" b
+        ) binds
         && lib.any (b: lib.hasInfix "SUPER SHIFT, B," b && lib.hasInfix "uwsm-app -- $browser" b) binds
         && lib.any (b: lib.hasInfix "SUPER SHIFT, F," b && lib.hasInfix "uwsm-app -- $fileManager" b) binds
         && lib.any (b: lib.hasInfix "SUPER SHIFT, N," b && lib.hasInfix "uwsm-app -- $terminal -e" b) binds
         && lib.any (b: lib.hasInfix "SUPER SHIFT, Return," b && lib.hasInfix "uwsm-app -- $browser" b) binds
-        && lib.any (b: lib.hasInfix "SUPER SHIFT, S," b && lib.hasInfix "uwsm-app -- omarchy-screenshot" b) binds
+        && lib.any (
+          b: lib.hasInfix "SUPER SHIFT, S," b && lib.hasInfix "uwsm-app -- omarchy-screenshot" b
+        ) binds
         && lib.any (b: lib.hasInfix "code:10" b) binds
         && lib.any (b: lib.hasInfix "code:19" b) binds
         && lib.any (b: lib.hasInfix "movefocus, l" b) binds
